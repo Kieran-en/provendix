@@ -1,0 +1,25 @@
+name: Semgrep
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  semgrep:
+    name: Semgrep Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >
+            p/django
+            p/python
+            p/javascript
+            p/owasp-top-ten
+            p/security-audit
