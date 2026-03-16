@@ -6,7 +6,7 @@ import { ArrowLeft, Printer, User, Package, CreditCard } from 'lucide-react'
 import Link from 'next/link'
 import api from '@/lib/api'
 import { Commande } from '@/types'
-import { formatCurrency, formatDateTime, formatWeight } from '@/lib/utils'
+import { formatCurrency, formatDate, formatWeight } from '@/lib/utils'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import Badge from '@/components/ui/Badge'
 
@@ -58,8 +58,8 @@ export default function VenteDetailPage() {
               <p className="text-emerald-100 text-sm mt-0.5 print:text-slate-500">Facture de vente</p>
             </div>
             <div className="text-right">
-              <p className="text-white font-mono text-sm print:text-slate-900">N° {String(commande.id).padStart(6, '0')}</p>
-              <p className="text-emerald-200 text-xs mt-1 print:text-slate-400">{formatDateTime(commande.date_heure)}</p>
+              <p className="text-white font-mono text-sm print:text-slate-900">N° {(commande as any).numero_commande ?? String(commande.id).padStart(6, '0')}</p>
+              <p className="text-emerald-200 text-xs mt-1 print:text-slate-400">{formatDate((commande as any).date_commande)}</p>
             </div>
           </div>
         </div>
@@ -72,9 +72,7 @@ export default function VenteDetailPage() {
                 <User className="w-3.5 h-3.5 text-slate-400" />
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Client</span>
               </div>
-              <p className="font-semibold text-slate-800">{commande.client?.nom ?? `Client #${commande.client_id}`}</p>
-              {commande.client?.contact && <p className="text-sm text-slate-500 mt-0.5">{commande.client.contact}</p>}
-              {commande.client?.adresse && <p className="text-sm text-slate-400">{commande.client.adresse}</p>}
+              <p className="font-semibold text-slate-800">{(commande as any).client_nom ?? `Client #${(commande as any).client}`}</p>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -101,19 +99,12 @@ export default function VenteDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {commande.lignes?.map((ligne) => {
-                  const prixUnit = commande.montant / (commande.lignes?.reduce((a, l) => a + l.quantite, 0) || 1)
-                  return (
-                    <tr key={ligne.id}>
-                      <td className="px-4 py-3">
-                        {ligne.formule?.nom ?? ligne.lot_pf?.formule?.nom ?? `Lot PF #${ligne.lot_pf_id}`}
-                      </td>
-                      <td className="px-4 py-3 text-right">{formatWeight(ligne.quantite)}</td>
-                      <td className="px-4 py-3 text-right">{formatCurrency(prixUnit)}/kg</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(prixUnit * ligne.quantite)}</td>
-                    </tr>
-                  )
-                })}
+                <tr>
+                  <td className="px-4 py-3">{(commande as any).lot_pf_numero ?? `Lot PF #${(commande as any).lot_pf}`}</td>
+                  <td className="px-4 py-3 text-right">{formatWeight((commande as any).quantite)}</td>
+                  <td className="px-4 py-3 text-right">{formatCurrency((commande as any).prix_unitaire)}/kg</td>
+                  <td className="px-4 py-3 text-right font-medium">{formatCurrency((commande as any).montant_total)}</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -123,7 +114,7 @@ export default function VenteDetailPage() {
             <div className="bg-slate-50 rounded-lg px-5 py-4 min-w-[200px]">
               <div className="flex items-center justify-between gap-8">
                 <span className="text-sm text-slate-600">Total TTC</span>
-                <span className="text-xl font-bold text-slate-900">{formatCurrency(commande.montant)}</span>
+                <span className="text-xl font-bold text-slate-900">{formatCurrency((commande as any).montant_total ?? commande.montant)}</span>
               </div>
             </div>
           </div>

@@ -85,9 +85,10 @@ export default function ProductionPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.map((prod) => {
-                  const lotPF = prod.lot_pf
+                  const p = prod as any
+                  const lotPF = p.lot_pf_detail
                   const stockRatio = lotPF
-                    ? lotPF.quantite_restante / lotPF.quantite_initiale
+                    ? lotPF.quantite_restante / (lotPF.quantite_initiale || 1)
                     : null
 
                   return (
@@ -99,10 +100,10 @@ export default function ProductionPage() {
                           </div>
                           <div>
                             <p className="font-medium text-slate-800">
-                              {prod.formule?.nom ?? `Formule #${prod.formule_id}`}
+                              {p.formule_nom ?? `Formule #${p.formule}`}
                             </p>
-                            {prod.formule?.code && (
-                              <p className="text-xs text-slate-400 font-mono">{prod.formule.code}</p>
+                            {p.formule_code && (
+                              <p className="text-xs text-slate-400 font-mono">{p.formule_code}</p>
                             )}
                           </div>
                         </div>
@@ -116,7 +117,7 @@ export default function ProductionPage() {
                       <td className="px-4 py-3.5 text-right text-slate-600">
                         {lotPF ? `${formatCurrency(lotPF.cout_revient)}/kg` : '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600">{formatDate(prod.date)}</td>
+                      <td className="px-4 py-3.5 text-slate-600">{formatDate(p.date ?? p.date_production)}</td>
                       <td className="px-4 py-3.5 text-center">
                         {stockRatio !== null ? (
                           <Badge

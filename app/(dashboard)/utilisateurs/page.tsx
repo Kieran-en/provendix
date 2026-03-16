@@ -49,7 +49,12 @@ export default function UtilisateursPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateFormData) => api.post('/users', data),
+    mutationFn: (data: CreateFormData) => api.post('/users', {
+      nom: data.login,
+      password: data.mot_de_passe,
+      role: data.role,
+      is_active: true,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['utilisateurs'] })
       toast.success('Utilisateur créé')
@@ -74,7 +79,7 @@ export default function UtilisateursPage() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: ({ id, mot_de_passe }: { id: number; mot_de_passe: string }) =>
-      api.patch(`/users/${id}/reset-password`, { mot_de_passe }),
+      api.patch(`/users/${id}/reset-password`, { password: mot_de_passe }),
     onSuccess: () => toast.success('Mot de passe réinitialisé'),
     onError: (err: AxiosError<{ error: string }>) => {
       toast.error(err.response?.data?.error || 'Erreur')

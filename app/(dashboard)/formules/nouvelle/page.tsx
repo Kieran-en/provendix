@@ -44,9 +44,8 @@ export default function NouvelleFormulePage() {
         nom: data.nom,
         code: data.code.toUpperCase(),
         compositions: data.compositions.map((c) => ({
-          matiere_premiere_id: parseInt(c.matiere_premiere_id),
+          mp_id: parseInt(c.matiere_premiere_id),
           quantite: parseFloat(c.quantite),
-          aliment_fourni: c.aliment_fourni || '',
         })),
       }),
     onSuccess: () => {

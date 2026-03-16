@@ -147,7 +147,7 @@ export default function FormulesPage() {
                     {formule.compositions.map((comp) => (
                       <div key={comp.id} className="flex items-center justify-between text-sm">
                         <span className="text-slate-700">
-                          {comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`}
+                          {(comp as any).mp_nom ?? comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`}
                         </span>
                         <span className="font-medium text-slate-800">{formatWeight(comp.quantite)}</span>
                       </div>

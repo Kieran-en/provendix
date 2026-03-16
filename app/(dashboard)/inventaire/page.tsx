@@ -60,14 +60,18 @@ export default function InventairePage() {
   const watchedType = watch('type')
 
   const mutation = useMutation({
-    mutationFn: (data: FormData) =>
-      api.post('/stocks/ajustement', {
+    mutationFn: (data: FormData) => {
+      const qty = parseFloat(data.quantite)
+      return api.post('/stocks/ajustement', {
+        type_stock: data.type,
+        type_ajustement: qty >= 0 ? 'ajout' : 'retrait',
         ...(data.type === 'mp'
-          ? { matiere_premiere_id: parseInt(data.cible_id) }
-          : { lot_pf_id: parseInt(data.cible_id) }),
-        quantite: parseFloat(data.quantite),
+          ? { mp: parseInt(data.cible_id) }
+          : { lot_pf: parseInt(data.cible_id) }),
+        quantite: Math.abs(qty),
         justification: data.justification,
-      }),
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stocks'] })
       queryClient.invalidateQueries({ queryKey: ['matieres-premieres'] })
@@ -143,7 +147,7 @@ export default function InventairePage() {
                     ))
                   : lotsPF?.map((lot) => (
                       <option key={lot.id} value={lot.id}>
-                        {lot.formule?.nom ?? `Lot #${lot.id}`} — {formatWeight(lot.quantite_restante)}
+                        {(lot as any).formule_nom ?? `Lot #${lot.id}`} — {formatWeight(lot.quantite_restante)}
                       </option>
                     ))}
               </select>

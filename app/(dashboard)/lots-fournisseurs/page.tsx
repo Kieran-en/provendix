@@ -99,7 +99,7 @@ export default function LotsFournisseursPage() {
                           <Package className="w-3.5 h-3.5 text-blue-600" />
                         </div>
                         <span className="font-medium text-slate-800">
-                          {lot.matiere_premiere?.nom ?? `MP #${lot.matiere_premiere_id}`}
+                          {(lot as any).mp_nom ?? lot.matiere_premiere?.nom ?? `MP #${lot.matiere_premiere_id}`}
                         </span>
                       </div>
                     </td>

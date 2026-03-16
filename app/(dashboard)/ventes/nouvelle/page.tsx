@@ -144,7 +144,7 @@ function NouvelleVenteForm() {
               <option value="">Sélectionner un lot PF...</option>
               {lotsPF?.map((lot) => (
                 <option key={lot.id} value={lot.id}>
-                  {lot.formule?.nom ?? `Lot #${lot.id}`} — {formatWeight(lot.quantite_restante)} dispo
+                  {(lot as any).formule_nom ?? `Lot #${lot.id}`} — {formatWeight(lot.quantite_restante)} dispo
                 </option>
               ))}
             </select>

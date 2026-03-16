@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import api from '@/lib/api'
 import { Commande, PaginatedResponse } from '@/types'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import Badge from '@/components/ui/Badge'
@@ -112,17 +112,17 @@ export default function VentesPage() {
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 bg-emerald-50 rounded-full flex items-center justify-center flex-shrink-0">
                             <span className="text-emerald-700 font-semibold text-xs">
-                              {(cmd.client?.nom ?? 'C').charAt(0).toUpperCase()}
+                              {((cmd as any).client_nom ?? 'C').charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <span className="font-medium text-slate-800">
-                            {cmd.client?.nom ?? `Client #${cmd.client_id}`}
+                            {(cmd as any).client_nom ?? `Client #${cmd.client}`}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600">{formatDateTime(cmd.date_heure)}</td>
+                      <td className="px-4 py-3.5 text-slate-600">{formatDate((cmd as any).date_commande)}</td>
                       <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
-                        {formatCurrency(cmd.montant)}
+                        {formatCurrency((cmd as any).montant_total ?? cmd.montant)}
                       </td>
                       <td className="px-4 py-3.5 text-center">
                         <Badge label={pConfig.label} variant={pConfig.variant} />

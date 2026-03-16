@@ -1,10 +1,12 @@
 'use client'
 
-import { Menu, Bell } from 'lucide-react'
+import { Menu, Sun, Moon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useThemeStore } from '@/store/theme.store'
+import NotificationBell from '@/components/ui/NotificationBell'
 
 const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Dashboard',
+  '/': 'Dashboard',
   '/ventes': 'Ventes',
   '/ventes/nouvelle': 'Nouvelle vente',
   '/production': 'Production',
@@ -21,6 +23,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/formules/nouvelle': 'Nouvelle formule',
   '/inventaire': 'Inventaire & Ajustements',
   '/rapports': 'Rapports',
+  '/logs': 'Journal d\'activité',
+  '/parametres': 'Paramètres',
 }
 
 interface HeaderProps {
@@ -29,26 +33,39 @@ interface HeaderProps {
 
 export default function Header({ onMenuOpen }: HeaderProps) {
   const pathname = usePathname()
+  const { theme, toggleTheme } = useThemeStore()
 
   const title =
     PAGE_TITLES[pathname] ??
-    Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key) && key !== '/dashboard')?.[1] ??
+    Object.entries(PAGE_TITLES).find(
+      ([key]) => pathname.startsWith(key) && key !== '/'
+    )?.[1] ??
     'PROVENDIX'
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200 flex items-center px-4 gap-3 sticky top-0 z-10">
+    <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 gap-3 sticky top-0 z-10">
       <button
         onClick={onMenuOpen}
-        className="lg:hidden p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+        className="lg:hidden p-1.5 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
       >
         <Menu className="w-5 h-5" />
       </button>
 
-      <h1 className="text-slate-800 font-semibold text-base flex-1">{title}</h1>
+      <h1 className="text-slate-800 dark:text-slate-100 font-semibold text-base flex-1">
+        {title}
+      </h1>
 
-      <button className="relative p-1.5 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition">
-        <Bell className="w-5 h-5" />
+      {/* Toggle dark mode */}
+      <button
+        onClick={toggleTheme}
+        className="p-1.5 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-amber-300 transition"
+        title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+      >
+        {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
       </button>
+
+      {/* Cloche notifications avec données réelles */}
+      <NotificationBell />
     </header>
   )
 }

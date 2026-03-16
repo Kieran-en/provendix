@@ -52,15 +52,15 @@ export default function NouvelleProductionPage() {
 
   // Calcul des consommations MP estimées
   const consommations = formuleSelectionnee?.compositions?.map((comp) => ({
-    nom: comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`,
+    nom: (comp as any).mp_nom ?? comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`,
     quantite: comp.quantite * qte,
   }))
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
       api.post('/productions', {
-        formule_id: parseInt(data.formule_id),
-        quantite_produite: parseFloat(data.quantite_produite),
+        formule: parseInt(data.formule_id),
+        quantite: parseFloat(data.quantite_produite),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productions'] })

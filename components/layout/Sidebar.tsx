@@ -16,6 +16,8 @@ import {
   LogOut,
   X,
   ChevronRight,
+  ScrollText,
+  Settings,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth.store'
 import { toast } from 'sonner'
@@ -28,7 +30,7 @@ interface NavItem {
 }
 
 const GERANT_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'Ventes', href: '/ventes', icon: ShoppingCart },
   { label: 'Production', href: '/production', icon: Factory },
   { label: 'Clients', href: '/clients', icon: Users },
@@ -36,13 +38,16 @@ const GERANT_NAV: NavItem[] = [
 ]
 
 const SUPERVISEUR_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'Utilisateurs', href: '/utilisateurs', icon: Users },
   { label: 'Matières Premières', href: '/matieres-premieres', icon: Wheat },
   { label: 'Lots Fournisseurs', href: '/lots-fournisseurs', icon: Truck },
   { label: 'Formules', href: '/formules', icon: FlaskConical },
+  { label: 'Production', href: '/production', icon: Factory },
   { label: 'Inventaire', href: '/inventaire', icon: ClipboardList },
   { label: 'Rapports', href: '/rapports', icon: BarChart3 },
+  { label: 'Journal d\'activité', href: '/logs', icon: ScrollText },
+  { label: 'Paramètres', href: '/parametres', icon: Settings },
 ]
 
 interface SidebarProps {
@@ -65,7 +70,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   }
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
   }
 

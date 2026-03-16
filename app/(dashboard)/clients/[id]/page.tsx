@@ -13,7 +13,7 @@ import { Client, Commande, PaginatedResponse } from '@/types'
 import { AxiosError } from 'axios'
 import { useEffect, useState } from 'react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import Badge from '@/components/ui/Badge'
 
 const schema = z.object({
@@ -218,9 +218,9 @@ export default function ClientDetailPage() {
             <tbody className="divide-y divide-slate-100">
               {commandesData.data.map((cmd) => (
                 <tr key={cmd.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-slate-600">{formatDateTime(cmd.date_heure)}</td>
+                  <td className="px-4 py-3 text-slate-600">{formatDate((cmd as any).date_commande)}</td>
                   <td className="px-4 py-3 text-right font-medium text-slate-800">
-                    {formatCurrency(cmd.montant)}
+                    {formatCurrency((cmd as any).montant_total ?? cmd.montant)}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <Badge
