@@ -1,0 +1,41 @@
+# ── Python ──────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# ── Environnement virtuel ────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ── Django ───────────────────────────────────────
+*.log
+db.sqlite3
+media/
+staticfiles/
+local_settings.py
+
+# ── Secrets / Config ─────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+
+# ── IDE ──────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Build ────────────────────────────────────────
+*.egg-info/
+dist/
+build/
