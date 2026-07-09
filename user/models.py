@@ -454,40 +454,9 @@ class MouvementStock(models.Model):
         ordering = ['-created_at']
 
 
-class LogActivite(models.Model):
-    """
-    Journal horodaté de toutes les actions utilisateur (exigence CDC §10).
-    """
-    ACTION_CHOICES = [
-        ("login",          "Connexion"),
-        ("logout",         "Déconnexion"),
-        ("create",         "Création"),
-        ("update",         "Modification"),
-        ("delete",         "Suppression"),
-        ("production",     "Production"),
-        ("vente",          "Vente"),
-        ("ajustement",     "Ajustement stock"),
-        ("reset_password", "Réinitialisation MDP"),
-    ]
-
-    utilisateur = models.ForeignKey(
-        Utilisateur, on_delete=models.SET_NULL,
-        null=True, related_name="logs",
-    )
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
-    module = models.CharField(max_length=50)
-    objet_id = models.IntegerField(null=True, blank=True)
-    description = models.TextField()
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"[{self.action}] {self.module} — {self.utilisateur}"
-
-    class Meta:
-        verbose_name = "Log d'activité"
-        verbose_name_plural = "Logs d'activité"
-        ordering = ['-created_at']
+# Le journal d'activité "maison" (ancien modèle LogActivite) a été remplacé par
+# django-auditlog : l'audit des créations/modifications/suppressions est désormais
+# automatique via des signaux (voir config/settings.py et user/audit.py).
 
 
 class Parametre(models.Model):

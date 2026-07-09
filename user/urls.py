@@ -6,7 +6,7 @@ from .views import (
     UtilisateurViewSet, ClientViewSet, AnimalViewSet, StadeVieViewSet,
     MPViewSet, LotFournisseurViewSet, FormuleViewSet, LotPFViewSet,
     ProductionViewSet, CommandeViewSet, VenteViewSet, HistoriqueViewSet,
-    StockViewSet, MouvementStockViewSet, LogActiviteViewSet, ParametreViewSet,
+    StockViewSet, MouvementStockViewSet, LogEntryViewSet, ParametreViewSet,
 )
 
 router = DefaultRouter(trailing_slash=False)
@@ -24,7 +24,7 @@ router.register(r'ventes', VenteViewSet, basename='vente')
 router.register(r'historiques', HistoriqueViewSet, basename='historique')
 router.register(r'stocks', StockViewSet, basename='stock')
 router.register(r'mouvements-stock', MouvementStockViewSet, basename='mouvementstock')
-router.register(r'logs', LogActiviteViewSet, basename='log')
+router.register(r'logs', LogEntryViewSet, basename='log')
 router.register(r'parametres', ParametreViewSet, basename='parametre')
 
 urlpatterns = [

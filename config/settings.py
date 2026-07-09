@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
+    'auditlog',
     'user',
 ]
 
@@ -51,6 +52,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Attache l'utilisateur métier (Utilisateur) aux entrées d'audit django-auditlog
+    'user.audit.AuditlogActorMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -145,3 +148,26 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Pas de redirection automatique vers les URLs avec slash final
 APPEND_SLASH = False
+
+# ─────────────────────────────────────────────────────────────
+# Journal d'audit — django-auditlog
+# Remplace l'ancien système de logs "maison" (modèle LogActivite +
+# appels _log() dispersés + IP via X-Forwarded-For exposée par l'API).
+# L'audit est désormais automatique (signaux) et éprouvé.
+# ─────────────────────────────────────────────────────────────
+AUDITLOG_INCLUDE_TRACKING_MODELS = (
+    # Le hash du mot de passe ne doit jamais apparaître dans le journal
+    {'model': 'user.Utilisateur', 'mask_fields': ['password']},
+    'user.Client',
+    'user.MP',
+    'user.Formule',
+    'user.CompositionFormule',
+    'user.LotFournisseur',
+    'user.LotPF',
+    'user.Production',
+    'user.Commande',
+    'user.AjustementStock',
+    'user.Parametre',
+)
+# On ne stocke pas l'adresse IP (spoofable via X-Forwarded-For, non nécessaire)
+AUDITLOG_DISABLE_REMOTE_ADDR = True

@@ -1,8 +1,9 @@
 from rest_framework import serializers
+from auditlog.models import LogEntry
 from .models import (
     Utilisateur, Client, Animal, StadeVie, MP, Formule, CompositionFormule,
     LotFournisseur, LotPF, Production, Commande, Vente, Historique,
-    AjustementStock, MouvementStock, LogActivite, Parametre,
+    AjustementStock, MouvementStock, Parametre,
 )
 
 
@@ -337,19 +338,81 @@ class MouvementStockSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
 
 
-class LogActiviteSerializer(serializers.ModelSerializer):
-    utilisateur_nom = serializers.CharField(source='utilisateur.nom', read_only=True)
-    utilisateur_role = serializers.CharField(source='utilisateur.role', read_only=True)
-    action_label = serializers.CharField(source='get_action_display', read_only=True)
+# ─────────────────────────────────────────────────────────────
+# Journal d'audit (django-auditlog)
+# ─────────────────────────────────────────────────────────────
+
+# Correspondances lisibles pour l'interface
+_ACTION_MAP = {
+    LogEntry.Action.CREATE: ('create', 'Création'),
+    LogEntry.Action.UPDATE: ('update', 'Modification'),
+    LogEntry.Action.DELETE: ('delete', 'Suppression'),
+    LogEntry.Action.ACCESS: ('access', 'Consultation'),
+}
+
+# Nom de modèle technique -> module affiché
+_MODULE_MAP = {
+    'utilisateur': 'Utilisateurs',
+    'client': 'Clients',
+    'mp': 'Matières premières',
+    'formule': 'Formules',
+    'compositionformule': 'Formules',
+    'lotfournisseur': 'Lots fournisseurs',
+    'lotpf': 'Lots produits finis',
+    'production': 'Production',
+    'commande': 'Ventes',
+    'ajustementstock': 'Inventaire',
+    'parametre': 'Paramètres',
+}
+
+
+class LogEntrySerializer(serializers.ModelSerializer):
+    """Expose les entrées django-auditlog dans le format attendu par le Journal."""
+    action = serializers.SerializerMethodField()
+    action_label = serializers.SerializerMethodField()
+    module = serializers.SerializerMethodField()
+    objet = serializers.CharField(source='object_repr', read_only=True)
+    objet_id = serializers.IntegerField(source='object_id', read_only=True)
+    description = serializers.SerializerMethodField()
+    changements = serializers.SerializerMethodField()
+    utilisateur_nom = serializers.SerializerMethodField()
+    utilisateur_role = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(source='timestamp', read_only=True)
 
     class Meta:
-        model = LogActivite
+        model = LogEntry
         fields = [
-            'id', 'utilisateur', 'utilisateur_nom', 'utilisateur_role',
-            'action', 'action_label', 'module', 'objet_id',
-            'description', 'ip_address', 'created_at',
+            'id', 'action', 'action_label', 'module', 'objet', 'objet_id',
+            'description', 'changements',
+            'utilisateur_nom', 'utilisateur_role', 'created_at',
         ]
-        read_only_fields = ['created_at']
+
+    def get_action(self, obj):
+        return _ACTION_MAP.get(obj.action, ('update', 'Action'))[0]
+
+    def get_action_label(self, obj):
+        return _ACTION_MAP.get(obj.action, ('update', 'Action'))[1]
+
+    def get_module(self, obj):
+        model = obj.content_type.model if obj.content_type else ''
+        return _MODULE_MAP.get(model, model.capitalize())
+
+    def get_changements(self, obj):
+        try:
+            return obj.changes_display_dict
+        except Exception:
+            return {}
+
+    def get_description(self, obj):
+        verbe = _ACTION_MAP.get(obj.action, ('', 'Action'))[1]
+        module = self.get_module(obj)
+        return f"{verbe} — {module} : {obj.object_repr}"
+
+    def get_utilisateur_nom(self, obj):
+        return (obj.additional_data or {}).get('actor_nom')
+
+    def get_utilisateur_role(self, obj):
+        return (obj.additional_data or {}).get('actor_role')
 
 
 class ParametreSerializer(serializers.ModelSerializer):

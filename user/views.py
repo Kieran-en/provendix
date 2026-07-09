@@ -5,12 +5,13 @@ from rest_framework.views import APIView
 from django.contrib.auth.hashers import check_password
 from django.db import transaction
 from django.utils import timezone
+from auditlog.models import LogEntry
 import uuid
 
 from .models import (
     Utilisateur, Client, Animal, StadeVie, MP, Formule, CompositionFormule,
     LotFournisseur, LotPF, Production, Commande, Vente, Historique,
-    AjustementStock, MouvementStock, LogActivite, Parametre,
+    AjustementStock, MouvementStock, Parametre,
 )
 from .serializers import (
     UtilisateurSerializer, UtilisateurCreateSerializer, LoginSerializer,
@@ -20,7 +21,7 @@ from .serializers import (
     ProductionSerializer, CommandeSerializer, CommandeCreateSerializer,
     PaiementSerializer, VenteSerializer, HistoriqueSerializer,
     AjustementStockSerializer, MouvementStockSerializer,
-    LogActiviteSerializer, ParametreSerializer,
+    LogEntrySerializer, ParametreSerializer,
 )
 from .permissions import IsAdmin, IsSuperviseurOrAdmin, IsAuthenticated, IsOwnerOrReadOnly
 
@@ -28,24 +29,9 @@ from .permissions import IsAdmin, IsSuperviseurOrAdmin, IsAuthenticated, IsOwner
 # ─────────────────────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────────────────────
-
-def _get_client_ip(request):
-    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded:
-        return x_forwarded.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
-
-
-def _log(utilisateur, action, module, description, objet_id=None, request=None):
-    LogActivite.objects.create(
-        utilisateur=utilisateur,
-        action=action,
-        module=module,
-        objet_id=objet_id,
-        description=description,
-        ip_address=_get_client_ip(request) if request else None,
-    )
-
+# Note : la journalisation des actions est désormais automatique via
+# django-auditlog (voir config/settings.py et user/audit.py). Il n'y a plus
+# d'appels _log() manuels ni de capture d'adresse IP.
 
 def _mouvement_mp(mp, delta, type_mouvement, cree_par=None, reference_id=None, reference_type=None):
     avant = mp.stock_disponible
@@ -92,8 +78,6 @@ class LoginView(APIView):
                 if check_password(mot_de_passe, utilisateur.password):
                     from .models import UserToken
                     token, _ = UserToken.get_or_create(utilisateur)
-                    _log(utilisateur, 'login', 'Auth',
-                         f"Connexion de {utilisateur.nom}", request=request)
                     return Response({
                         'user': {
                             'id': utilisateur.id,
@@ -115,8 +99,6 @@ class LogoutView(APIView):
 
     def post(self, request):
         from .models import UserToken
-        _log(request.user, 'logout', 'Auth',
-             f"Déconnexion de {request.user.nom}", request=request)
         try:
             token = UserToken.objects.get(utilisateur=request.user)
             token.delete()
@@ -159,7 +141,6 @@ class DashboardStatsView(APIView):
         ).count()
 
         # Évolution stock MP (7 derniers jours via MouvementStock)
-        from collections import defaultdict
         from datetime import timedelta
         stock_evolution = []
         for i in range(6, -1, -1):
@@ -234,12 +215,14 @@ class RapportVentesView(APIView):
             key=lambda x: x['montant'], reverse=True
         )[:10]
 
+        # Consommation MP : la composition est exprimée par tonne (kg / 1000 kg),
+        # donc conso = (quantite_par_tonne / 1000) × quantite_produite_kg.
         mp_map = defaultdict(float)
         for prod in productions:
             for comp in prod.formule.compositions.all():
-                mp_map[comp.mp.nom] += comp.quantite * prod.quantite
+                mp_map[comp.mp.nom] += (comp.quantite / 1000.0) * prod.quantite
         mp_consommation = sorted(
-            [{'nom': nom, 'quantite': qty} for nom, qty in mp_map.items()],
+            [{'nom': nom, 'quantite': round(qty, 2)} for nom, qty in mp_map.items()],
             key=lambda x: x['quantite'], reverse=True
         )
 
@@ -354,18 +337,6 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
             return UtilisateurCreateSerializer
         return UtilisateurSerializer
 
-    def perform_create(self, serializer):
-        utilisateur = serializer.save()
-        _log(self.request.user, 'create', 'Utilisateurs',
-             f"Création utilisateur : {utilisateur.nom} ({utilisateur.role})",
-             objet_id=utilisateur.id, request=self.request)
-
-    def perform_destroy(self, instance):
-        _log(self.request.user, 'delete', 'Utilisateurs',
-             f"Suppression utilisateur : {instance.nom}",
-             objet_id=instance.id, request=self.request)
-        instance.delete()
-
     @action(detail=True, methods=['patch'])
     def reset_password(self, request, pk=None):
         utilisateur = self.get_object()
@@ -375,9 +346,6 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
         from django.contrib.auth.hashers import make_password
         utilisateur.password = make_password(new_password)
         utilisateur.save()
-        _log(request.user, 'reset_password', 'Utilisateurs',
-             f"Réinitialisation MDP de {utilisateur.nom}",
-             objet_id=utilisateur.id, request=request)
         return Response({'message': 'Mot de passe réinitialisé'}, status=status.HTTP_200_OK)
 
 
@@ -391,22 +359,7 @@ class ClientViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        client = serializer.save(cree_par=self.request.user)
-        _log(self.request.user, 'create', 'Clients',
-             f"Nouveau client : {client.nom_client}",
-             objet_id=client.id, request=self.request)
-
-    def perform_update(self, serializer):
-        client = serializer.save()
-        _log(self.request.user, 'update', 'Clients',
-             f"Modification client : {client.nom_client}",
-             objet_id=client.id, request=self.request)
-
-    def perform_destroy(self, instance):
-        _log(self.request.user, 'delete', 'Clients',
-             f"Suppression client : {instance.nom_client}",
-             objet_id=instance.id, request=self.request)
-        instance.delete()
+        serializer.save(cree_par=self.request.user)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -435,19 +388,7 @@ class MPViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        mp = serializer.save(cree_par=self.request.user)
-        _log(self.request.user, 'create', 'MP',
-             f"Nouvelle MP : {mp.nom}", objet_id=mp.id, request=self.request)
-
-    def perform_update(self, serializer):
-        mp = serializer.save()
-        _log(self.request.user, 'update', 'MP',
-             f"Modification MP : {mp.nom}", objet_id=mp.id, request=self.request)
-
-    def perform_destroy(self, instance):
-        _log(self.request.user, 'delete', 'MP',
-             f"Suppression MP : {instance.nom}", objet_id=instance.id, request=self.request)
-        instance.delete()
+        serializer.save(cree_par=self.request.user)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -494,17 +435,7 @@ class LotFournisseurViewSet(viewsets.ModelViewSet):
         mp.stock_disponible += quantite
         mp.save()
 
-        _log(request.user, 'create', 'LotsFournisseurs',
-             f"Réception {quantite} {mp.unite} de {mp.nom} (lot {numero_lot})",
-             objet_id=lot.id, request=request)
-
         return Response(LotFournisseurSerializer(lot).data, status=status.HTTP_201_CREATED)
-
-    def perform_destroy(self, instance):
-        _log(self.request.user, 'delete', 'LotsFournisseurs',
-             f"Suppression lot {instance.numero_lot}",
-             objet_id=instance.id, request=self.request)
-        instance.delete()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -521,22 +452,7 @@ class FormuleViewSet(viewsets.ModelViewSet):
         return FormuleSerializer
 
     def perform_create(self, serializer):
-        formule = serializer.save(cree_par=self.request.user)
-        _log(self.request.user, 'create', 'Formules',
-             f"Nouvelle formule : {formule.nom} ({formule.code})",
-             objet_id=formule.id, request=self.request)
-
-    def perform_update(self, serializer):
-        formule = serializer.save()
-        _log(self.request.user, 'update', 'Formules',
-             f"Modification formule : {formule.nom}",
-             objet_id=formule.id, request=self.request)
-
-    def perform_destroy(self, instance):
-        _log(self.request.user, 'delete', 'Formules',
-             f"Suppression formule : {instance.nom} ({instance.code})",
-             objet_id=instance.id, request=self.request)
-        instance.delete()
+        serializer.save(cree_par=self.request.user)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -577,9 +493,14 @@ class ProductionViewSet(viewsets.ModelViewSet):
 
         compositions = list(formule.compositions.select_related('mp').all())
 
+        # La composition est exprimée par tonne (kg pour 1000 kg produits) :
+        # consommation = (quantite_par_tonne / 1000) × quantite_produite_kg.
+        def _consommation(comp):
+            return (comp.quantite / 1000.0) * quantite
+
         # Vérification stocks suffisants
         for comp in compositions:
-            required_qty = comp.quantite * quantite
+            required_qty = _consommation(comp)
             if comp.mp.stock_disponible < required_qty:
                 return Response({
                     'error': (
@@ -602,7 +523,7 @@ class ProductionViewSet(viewsets.ModelViewSet):
 
         # Décrément stocks MP + mouvements traçables
         for comp in compositions:
-            consommation = comp.quantite * quantite
+            consommation = _consommation(comp)
             _mouvement_mp(comp.mp, -consommation, 'consommation',
                           cree_par=request.user,
                           reference_id=lot_pf.id, reference_type='LotPF')
@@ -619,10 +540,6 @@ class ProductionViewSet(viewsets.ModelViewSet):
             date_production=timezone.now().date(),
             date_prevue=timezone.now().date(),
         )
-
-        _log(request.user, 'production', 'Production',
-             f"Production de {quantite} kg — {formule.nom} → Lot {lot_pf.numero_lot}",
-             objet_id=production.id, request=request)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -675,10 +592,6 @@ class CommandeViewSet(viewsets.ModelViewSet):
                 lot_pf.statut = 'epuise'
             lot_pf.save()
 
-        _log(request.user, 'vente', 'Ventes',
-             f"Vente {commande.numero_commande} — {commande.client.nom_client} : {montant_total:.0f} DA ({statut_paiement})",
-             objet_id=commande.id, request=request)
-
         return Response(CommandeSerializer(commande).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'])
@@ -709,9 +622,6 @@ class CommandeViewSet(viewsets.ModelViewSet):
             if commande.montant_paye >= commande.montant_total:
                 commande.statut_paiement = 'cash'
             commande.save()
-            _log(request.user, 'update', 'Ventes',
-                 f"Paiement de {montant:.0f} DA sur commande {commande.numero_commande}",
-                 objet_id=commande.id, request=request)
             return Response({'message': 'Paiement enregistré', 'montant_paye': commande.montant_paye})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -736,7 +646,6 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request):
-        from django.db.models import F
         mp_stocks = MP.objects.all()
         pf_stocks = LotPF.objects.filter(statut='disponible').select_related('formule')
 
@@ -804,9 +713,6 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
                 else:
                     mp.stock_disponible = max(0, mp.stock_disponible - quantite)
                 mp.save()
-                _log(request.user, 'ajustement', 'Inventaire',
-                     f"Ajustement {type_ajustement} {quantite} {mp.unite} sur {mp.nom} — {ajustement.justification}",
-                     objet_id=ajustement.id, request=request)
 
             elif type_stock == 'pf' and ajustement.lot_pf:
                 lot_pf = ajustement.lot_pf
@@ -820,9 +726,6 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
                     if lot_pf.quantite <= 0:
                         lot_pf.statut = 'epuise'
                 lot_pf.save()
-                _log(request.user, 'ajustement', 'Inventaire',
-                     f"Ajustement {type_ajustement} {quantite} kg sur lot PF {lot_pf.numero_lot} — {ajustement.justification}",
-                     objet_id=ajustement.id, request=request)
 
             return Response({'message': 'Stock ajusté avec succès'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -852,32 +755,53 @@ class MouvementStockViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # ─────────────────────────────────────────────────────────────
-# LOGS D'ACTIVITÉ
+# JOURNAL D'AUDIT (django-auditlog)
 # ─────────────────────────────────────────────────────────────
 
-class LogActiviteViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = LogActivite.objects.all()
-    serializer_class = LogActiviteSerializer
+class LogEntryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Journal d'activité alimenté automatiquement par django-auditlog.
+    Réservé aux superviseurs/administrateurs.
+    """
+    serializer_class = LogEntrySerializer
     permission_classes = [IsSuperviseurOrAdmin]
 
+    _ACTION_FILTER = {'create': 0, 'update': 1, 'delete': 2, 'access': 3}
+    _MODULE_MODELS = {
+        'utilisateurs': ['utilisateur'],
+        'clients': ['client'],
+        'matieres premieres': ['mp'],
+        'mp': ['mp'],
+        'formules': ['formule', 'compositionformule'],
+        'lots fournisseurs': ['lotfournisseur'],
+        'lots produits finis': ['lotpf'],
+        'production': ['production'],
+        'ventes': ['commande'],
+        'inventaire': ['ajustementstock'],
+        'parametres': ['parametre'],
+    }
+
     def get_queryset(self):
-        queryset = super().get_queryset()
+        qs = LogEntry.objects.select_related('content_type').all().order_by('-timestamp')
         action = self.request.query_params.get('action')
         module = self.request.query_params.get('module')
-        user_id = self.request.query_params.get('utilisateur')
         date_from = self.request.query_params.get('from')
         date_to = self.request.query_params.get('to')
-        if action:
-            queryset = queryset.filter(action=action)
+
+        if action in self._ACTION_FILTER:
+            qs = qs.filter(action=self._ACTION_FILTER[action])
         if module:
-            queryset = queryset.filter(module__icontains=module)
-        if user_id:
-            queryset = queryset.filter(utilisateur_id=user_id)
+            key = module.strip().lower()
+            models_list = self._MODULE_MODELS.get(key)
+            if models_list:
+                qs = qs.filter(content_type__model__in=models_list)
+            else:
+                qs = qs.filter(content_type__model__icontains=key)
         if date_from:
-            queryset = queryset.filter(created_at__date__gte=date_from)
+            qs = qs.filter(timestamp__date__gte=date_from)
         if date_to:
-            queryset = queryset.filter(created_at__date__lte=date_to)
-        return queryset
+            qs = qs.filter(timestamp__date__lte=date_to)
+        return qs
 
 
 # ─────────────────────────────────────────────────────────────
@@ -913,7 +837,4 @@ class ParametreViewSet(viewsets.ModelViewSet):
                 cle=cle, defaults={'valeur': str(valeur)}
             )
             updated.append({'cle': obj.cle, 'valeur': obj.valeur})
-        _log(request.user, 'update', 'Paramètres',
-             f"Mise à jour paramètres : {list(params.keys())}",
-             request=request)
         return Response({'updated': updated})
