@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import api from '@/lib/api'
 import { Formule, PaginatedResponse } from '@/types'
-import { formatWeight } from '@/lib/utils'
+import { formatWeight, formatCurrency } from '@/lib/utils'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import { toast } from 'sonner'
@@ -102,9 +102,15 @@ export default function FormulesPage() {
                   <p className="font-semibold text-slate-800 text-sm">{formule.nom}</p>
                   <p className="text-xs text-slate-400 font-mono mt-0.5">{formule.code}</p>
                 </div>
+                {/* Coût de revient */}
+                {formule.prix_unitaire != null && formule.prix_unitaire > 0 && (
+                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-md hidden sm:block whitespace-nowrap">
+                    {formatCurrency(formule.prix_unitaire)}/kg
+                  </span>
+                )}
                 {/* Nb ingrédients */}
                 {formule.compositions && (
-                  <span className="text-xs text-slate-400 hidden sm:block">
+                  <span className="text-xs text-slate-400 hidden md:block whitespace-nowrap">
                     {formule.compositions.length} ingrédient{formule.compositions.length > 1 ? 's' : ''}
                   </span>
                 )}

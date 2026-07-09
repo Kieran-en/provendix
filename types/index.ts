@@ -23,6 +23,8 @@ export interface MatierePremiere {
   nom: string
   quantite: number
   prix_kg: number
+  seuil_alerte: number
+  unite?: string
 }
 
 // ─── Lot Fournisseur ──────────────────────────────────────────────────────────
@@ -41,6 +43,9 @@ export interface Formule {
   id: number
   nom: string
   code: string
+  /** Coût de revient (DA/kg), calculé à partir de la composition */
+  prix_unitaire?: number
+  stade_vie_nom?: string | null
   compositions?: CompositionFormule[]
 }
 

@@ -46,7 +46,7 @@ const SUPERVISEUR_NAV: NavItem[] = [
   { label: 'Production', href: '/production', icon: Factory },
   { label: 'Inventaire', href: '/inventaire', icon: ClipboardList },
   { label: 'Rapports', href: '/rapports', icon: BarChart3 },
-  { label: 'Journal d\'activité', href: '/logs', icon: ScrollText },
+  { label: 'Journal d\'audit', href: '/logs', icon: ScrollText },
   { label: 'Paramètres', href: '/parametres', icon: Settings },
 ]
 

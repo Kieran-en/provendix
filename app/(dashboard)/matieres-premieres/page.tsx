@@ -11,8 +11,6 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import Badge from '@/components/ui/Badge'
 
-const SEUIL_ALERTE_KG = 500
-
 export default function MatieresPremieres() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -82,6 +80,7 @@ export default function MatieresPremieres() {
                 <tr className="border-b border-slate-100">
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 bg-slate-50">Nom</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Stock actuel</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Seuil d'alerte</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Prix / kg</th>
                   <th className="px-4 py-3 text-center font-semibold text-slate-600 bg-slate-50">État</th>
                   <th className="px-4 py-3 bg-slate-50" />
@@ -89,7 +88,8 @@ export default function MatieresPremieres() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.map((mp) => {
-                  const alerte = mp.quantite < SEUIL_ALERTE_KG
+                  // Chaque MP a son propre seuil d'alerte (aligné sur le backend)
+                  const alerte = mp.quantite < mp.seuil_alerte
                   return (
                     <tr key={mp.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3.5">
@@ -107,6 +107,9 @@ export default function MatieresPremieres() {
                             {formatWeight(mp.quantite)}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-slate-500">
+                        {formatWeight(mp.seuil_alerte)}
                       </td>
                       <td className="px-4 py-3.5 text-right text-slate-700">
                         {formatCurrency(mp.prix_kg)}/kg

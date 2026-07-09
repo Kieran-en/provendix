@@ -23,7 +23,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/formules/nouvelle': 'Nouvelle formule',
   '/inventaire': 'Inventaire & Ajustements',
   '/rapports': 'Rapports',
-  '/logs': 'Journal d\'activité',
+  '/logs': 'Journal d\'audit',
   '/parametres': 'Paramètres',
 }
 
