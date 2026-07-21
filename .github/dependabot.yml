@@ -3,14 +3,7 @@ version: 2
 updates:
   # Django / Python dependencies
   - package-ecosystem: "pip"
-    directory: "/backend"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-
-  # Next.js / JavaScript dependencies
-  - package-ecosystem: "npm"
-    directory: "/frontend"
+    directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

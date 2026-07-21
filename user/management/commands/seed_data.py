@@ -2,10 +2,11 @@
 Management command : python manage.py seed_data
 
 Purge la base et injecte un jeu de données réaliste pour PROVENDIX.
-Provenderie fictive : "Provenderie El Baraka" — Tizi-Ouzou, Algérie
+Provenderie fictive utilisant le franc CFA d'Afrique centrale (XAF).
 """
 import uuid
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
@@ -21,7 +22,11 @@ def _dt(jour):
 
 # Coût de transformation (énergie, main-d'œuvre, emballage, amortissement) appliqué
 # au coût des matières pour obtenir le coût de revient d'une formule.
-COEF_TRANSFORMATION = 1.08
+COEF_TRANSFORMATION = Decimal('1.08')
+
+
+def _decimal(value):
+    return Decimal(str(value))
 
 
 class Command(BaseCommand):
@@ -32,15 +37,15 @@ class Command(BaseCommand):
         # d'activité ne doit contenir que les actions réelles des utilisateurs,
         # pas les centaines d'insertions du jeu de test.
         with disable_auditlog():
-            self.stdout.write(self.style.WARNING('Suppression des donnees existantes...'))
-            self._purge()
-            self.stdout.write(self.style.SUCCESS('Base videe'))
-
             with transaction.atomic():
+                self.stdout.write(self.style.WARNING('Suppression des donnees existantes...'))
+                self._purge()
+                self.stdout.write(self.style.SUCCESS('Base videe'))
                 self.stdout.write('Creation des donnees...')
                 superviseur, gerant1, gerant2 = self._utilisateurs()
                 animaux, stades = self._animaux_stades()
                 mps = self._matieres_premieres(superviseur)
+                self._accessoires(superviseur)
                 formules = self._formules(superviseur, stades, mps)
                 self._lots_fournisseurs(superviseur, mps)
                 lots_pf = self._productions(gerant1, formules, mps)
@@ -51,31 +56,36 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Jeu de donnees cree avec succes !'))
         self.stdout.write('')
         self.stdout.write('Comptes disponibles :')
-        self.stdout.write('  admin.baraka  |  superviseur  |  Admin1234!')
-        self.stdout.write('  m.kaci        |  gerant       |  Gerant123!')
-        self.stdout.write('  f.zerrouk     |  gerant       |  Gerant123!')
+        self.stdout.write('  admin.provendix   |  superviseur  |  Admin1234!')
+        self.stdout.write('  gerant.principal  |  gerant       |  Gerant123!')
+        self.stdout.write('  gerant.adjoint    |  gerant       |  Gerant123!')
         self.stdout.write('')
 
     # ─────────────────────────────────────────────────────────────
     def _purge(self):
         from user.models import (
-            MouvementStock, AjustementStock, Vente, Commande,
+            MouvementStock, AjustementStock, Vente, Commande, Paiement,
             Production, LotPF, LotFournisseur, CompositionFormule,
-            Formule, MP, StadeVie, Animal, Client, UserToken,
+            LotConsommation, CommandeLotMP,
+            Formule, MP, Accessoire, StadeVie, Animal, Client, UserToken,
             Historique, Parametre, Utilisateur,
         )
         from auditlog.models import LogEntry
         MouvementStock.objects.all().delete()
         LogEntry.objects.all().delete()
         AjustementStock.objects.all().delete()
+        Paiement.objects.all().delete()
         Vente.objects.all().delete()
+        CommandeLotMP.objects.all().delete()
         Commande.objects.all().delete()
+        LotConsommation.objects.all().delete()
         Production.objects.all().delete()
         LotPF.objects.all().delete()
         LotFournisseur.objects.all().delete()
         CompositionFormule.objects.all().delete()
         Formule.objects.all().delete()
         MP.objects.all().delete()
+        Accessoire.objects.all().delete()
         StadeVie.objects.all().delete()
         Animal.objects.all().delete()
         Client.objects.all().delete()
@@ -91,15 +101,15 @@ class Command(BaseCommand):
         pwd_gerant = make_password('Gerant123!')
 
         superviseur = Utilisateur.objects.create(
-            nom='admin.baraka', role='superviseur',
+            nom='Administrateur PROVENDIX', login='admin.provendix', role='superviseur',
             password=pwd_superviseur, is_active=True
         )
         gerant1 = Utilisateur.objects.create(
-            nom='m.kaci', role='gerant',
+            nom='Gérant principal', login='gerant.principal', role='gerant',
             password=pwd_gerant, is_active=True
         )
         gerant2 = Utilisateur.objects.create(
-            nom='f.zerrouk', role='gerant',
+            nom='Gérant adjoint', login='gerant.adjoint', role='gerant',
             password=pwd_gerant, is_active=True
         )
         self.stdout.write('  OK Utilisateurs (3)')
@@ -133,33 +143,52 @@ class Command(BaseCommand):
 
         data = [
             # nom,                 unite, prix_vente, seuil_alerte
-            ('Maïs',               'kg',  42.0,  1000.0),
-            ('Soja tourteau 48%',  'kg',  85.0,   800.0),
-            ('Blé tendre',         'kg',  38.0,   500.0),
-            ('Son de blé',         'kg',  25.0,   300.0),
-            ('Huile de soja',      'kg', 180.0,   100.0),
-            ('Carbonate de calcium','kg',  15.0,   200.0),
-            ('Prémix Poulet Starter','kg',320.0,    50.0),
-            ('Prémix Poulet Finition','kg',290.0,   50.0),
-            ('Prémix Dinde',       'kg', 310.0,    50.0),
-            ('Prémix Lapin',       'kg', 280.0,    50.0),
-            ('Lysine HCl',         'kg', 420.0,    30.0),
-            ('Méthionine DL',      'kg', 480.0,    30.0),
+            ('Maïs',               'kg', 210.0,  1000.0),
+            ('Soja tourteau 48%',  'kg', 425.0,   800.0),
+            ('Blé tendre',         'kg', 190.0,   500.0),
+            ('Son de blé',         'kg', 125.0,   300.0),
+            ('Huile de soja',      'kg', 900.0,   100.0),
+            ('Carbonate de calcium','kg',  75.0,   200.0),
+            ('Prémix Poulet Starter','kg',1600.0,   50.0),
+            ('Prémix Poulet Finition','kg',1450.0,  50.0),
+            ('Prémix Dinde',       'kg',1550.0,    50.0),
+            ('Prémix Lapin',       'kg',1400.0,    50.0),
+            ('Lysine HCl',         'kg',2100.0,    30.0),
+            ('Méthionine DL',      'kg',2400.0,    30.0),
         ]
 
         mps = {}
         for nom, unite, prix, seuil in data:
             mp = MP.objects.create(
                 nom=nom, unite=unite,
-                prix_vente=prix,
-                stock_disponible=0.0,
-                seuil_alerte=seuil,
+                prix_achat_moyen=_decimal(prix),
+                prix_vente=(_decimal(prix) * Decimal('1.20')).quantize(Decimal('0.01')),
+                stock_disponible=Decimal('0'),
+                seuil_alerte=_decimal(seuil),
                 cree_par=superviseur,
             )
             mps[nom] = mp
 
         self.stdout.write(f'  OK Matières premières ({len(mps)})')
         return mps
+
+    def _accessoires(self, superviseur):
+        from user.models import Accessoire
+
+        data = [
+            ('Abreuvoir 10 L', 'Abreuvoir plastique pour volailles', 'pièce', 4500, 6000, 24, 5),
+            ('Mangeoire 5 kg', 'Mangeoire suspendue', 'pièce', 3500, 4800, 30, 5),
+            ('Poussin d’un jour', 'Poussin de chair', 'tête', 650, 850, 200, 40),
+            ('Poulet prêt à élever', 'Poulet démarré et vacciné', 'tête', 2500, 3200, 60, 10),
+        ]
+        for nom, description, unite, achat, vente, stock, seuil in data:
+            Accessoire.objects.create(
+                nom=nom, description=description, unite=unite,
+                prix_achat=_decimal(achat), prix_vente=_decimal(vente),
+                stock_disponible=_decimal(stock), seuil_alerte=_decimal(seuil),
+                cree_par=superviseur,
+            )
+        self.stdout.write(f'  OK Accessoires ({len(data)})')
 
     # ─────────────────────────────────────────────────────────────
     def _formules(self, superviseur, stades, mps):
@@ -249,16 +278,22 @@ class Command(BaseCommand):
                 nom=fd['nom'],
                 code=fd['code'],
                 stade_vie=stades.get(fd['stade']),
-                prix_unitaire=0.0,  # calculé ci-dessous à partir de la composition
+                prix_unitaire=Decimal('0'),  # calculé ci-dessous à partir de la composition
                 cree_par=superviseur,
             )
             for mp, qte in fd['compositions']:
-                CompositionFormule.objects.create(formule=formule, mp=mp, quantite=qte)
+                CompositionFormule.objects.create(
+                    formule=formule, mp=mp,
+                    pourcentage=(_decimal(qte) / Decimal('10')).quantize(Decimal('0.001')),
+                )
 
             # Coût de revient = coût des matières (par kg) × coût de transformation.
             # La composition est exprimée par tonne, d'où la division par 1000.
-            cout_matieres = sum(mp.prix_vente * qte for mp, qte in fd['compositions']) / 1000.0
-            formule.prix_unitaire = round(cout_matieres * COEF_TRANSFORMATION, 1)
+            cout_matieres = sum(
+                (mp.prix_achat_moyen * _decimal(qte) for mp, qte in fd['compositions']),
+                Decimal('0'),
+            ) / Decimal('1000')
+            formule.prix_unitaire = (cout_matieres * COEF_TRANSFORMATION).quantize(Decimal('0.01'))
             formule.save(update_fields=['prix_unitaire'])
 
             formules[fd['code']] = formule
@@ -282,26 +317,28 @@ class Command(BaseCommand):
         # l'huile de soja et la méthionine (alertes volontaires pour la démo).
         lots_data = [
             # (mp_key, fournisseur, qte, prix_achat, jours_avant, peremption_jours)
-            ('Maïs',                  'SARL Grains du Nord',   15000, 40.0,  75, 365),
-            ('Maïs',                  'SARL Grains du Nord',   10000, 41.5,  30, 365),
-            ('Soja tourteau 48%',     'Import Agro DZ',         7000, 83.0,  80, 270),
-            ('Soja tourteau 48%',     'Import Agro DZ',         6000, 84.5,  25, 270),
-            ('Blé tendre',            'Coopérative El Khir',    3000, 37.0,  60, 300),
-            ('Son de blé',            'Minoterie Taboukert',    2000, 24.0,  55, 180),
-            ('Son de blé',            'Minoterie Taboukert',    1500, 24.5,  10, 180),
-            ('Huile de soja',         'Cevital Industrie',       900, 175.0, 45,  90),
-            ('Huile de soja',         'Cevital Industrie',       400, 178.0,  8,  90),
-            ('Carbonate de calcium',  'Carrière Djurdjura',     1000, 14.0,  70, 730),
-            ('Prémix Poulet Starter', 'VICO Nutrition',          200, 315.0, 65,  90),
-            ('Prémix Poulet Finition','VICO Nutrition',          200, 285.0, 65,  90),
-            ('Prémix Dinde',          'VICO Nutrition',          150, 305.0, 50,  90),
-            ('Prémix Lapin',          'VICO Nutrition',          100, 275.0, 40,  90),
-            ('Lysine HCl',            'BioChem Alger',           100, 415.0, 60, 180),
-            ('Méthionine DL',         'BioChem Alger',           100, 475.0, 60, 180),
+            ('Maïs',                  'Coopérative Céréales',  15000, 200.0, 75, 365),
+            ('Maïs',                  'Coopérative Céréales',  10000, 207.5, 30, 365),
+            ('Soja tourteau 48%',     'Agro Import Services',    7000, 415.0, 80, 270),
+            ('Soja tourteau 48%',     'Agro Import Services',    6000, 422.5, 40, 270),
+            ('Blé tendre',            'Coopérative Agricole',    3000, 185.0, 60, 300),
+            ('Son de blé',            'Minoterie Centrale',      2000, 120.0, 55, 180),
+            ('Son de blé',            'Minoterie Centrale',      1500, 122.5, 10, 180),
+            ('Huile de soja',         'Huilerie Régionale',       900, 875.0, 80, 90),
+            ('Huile de soja',         'Huilerie Régionale',       400, 890.0, 30, 90),
+            ('Carbonate de calcium',  'Carrière Régionale',      1000, 70.0, 70, 730),
+            ('Prémix Poulet Starter', 'Nutrition Animale',        200, 1575.0, 65, 90),
+            ('Prémix Poulet Finition','Nutrition Animale',        200, 1425.0, 65, 90),
+            ('Prémix Dinde',          'Nutrition Animale',        150, 1525.0, 50, 90),
+            ('Prémix Lapin',          'Nutrition Animale',        100, 1375.0, 40, 90),
+            ('Lysine HCl',            'BioChem Afrique',          100, 2075.0, 60, 180),
+            ('Méthionine DL',         'BioChem Afrique',          100, 2375.0, 60, 180),
         ]
 
         for mp_key, fournisseur, qte, prix, jours_avant, duree_peremption in lots_data:
             mp = mps[mp_key]
+            qte = _decimal(qte)
+            prix = _decimal(prix)
             date_reception = today - timedelta(days=jours_avant)
             date_peremption = date_reception + timedelta(days=duree_peremption)
             numero = f"LOT-{uuid.uuid4().hex[:8].upper()}"
@@ -342,7 +379,10 @@ class Command(BaseCommand):
         Lance 8 productions sur les 2 derniers mois.
         Décrémente les stocks MP selon les compositions.
         """
-        from user.models import Production, LotPF, MouvementStock, CompositionFormule
+        from user.models import (
+            CompositionFormule, LotConsommation, LotFournisseur, LotPF,
+            MouvementStock, Production,
+        )
 
         today = date.today()
 
@@ -361,27 +401,34 @@ class Command(BaseCommand):
         lots_pf = {}
         for code, qte_kg, jours_avant in productions_data:
             formule = formules[code]
+            qte_kg = _decimal(qte_kg)
             date_prod = today - timedelta(days=jours_avant)
             date_peremption = date_prod + timedelta(days=180)
 
-            # Décrémentation des stocks MP
             compositions = list(
                 CompositionFormule.objects.filter(formule=formule).select_related('mp')
             )
+            allocations = []
+            cout_matieres = Decimal('0')
             for comp in compositions:
-                consommation = (comp.quantite / 1000.0) * qte_kg
-                avant = comp.mp.stock_disponible
-                MouvementStock.objects.create(
-                    mp=comp.mp,
-                    type_mouvement='consommation',
-                    quantite_avant=avant,
-                    quantite_delta=-consommation,
-                    quantite_apres=avant - consommation,
-                    reference_type='Production',
-                    cree_par=gerant,
-                )
-                comp.mp.stock_disponible = max(0, avant - consommation)
-                comp.mp.save()
+                restant = (comp.pourcentage / Decimal('100')) * qte_kg
+                lots = LotFournisseur.objects.filter(
+                    mp=comp.mp, statut='disponible', quantite__gt=0,
+                    date_reception__lte=date_prod,
+                ).order_by('date_peremption', 'date_reception', 'id')
+                for lot in lots:
+                    if restant <= 0:
+                        break
+                    preleve = min(lot.quantite, restant)
+                    allocations.append((lot, preleve))
+                    cout_matieres += preleve * lot.prix_achat
+                    lot.quantite -= preleve
+                    if lot.quantite == 0:
+                        lot.statut = 'epuise'
+                    lot.save(update_fields=['quantite', 'statut'])
+                    restant -= preleve
+                if restant > 0:
+                    raise RuntimeError(f'Lots fournisseurs insuffisants pour {comp.mp.nom}')
 
             # Création du Lot PF
             numero_pf = f"PF-{code[:2]}-{uuid.uuid4().hex[:6].upper()}"
@@ -390,6 +437,7 @@ class Command(BaseCommand):
                 numero_lot=numero_pf,
                 quantite_initiale=qte_kg,
                 quantite=qte_kg,
+                cout_revient=((cout_matieres * COEF_TRANSFORMATION) / qte_kg).quantize(Decimal('0.01')),
                 date_production=date_prod,
                 date_peremption=date_peremption,
                 statut='disponible',
@@ -405,11 +453,23 @@ class Command(BaseCommand):
                 statut='terminee',
                 cree_par=gerant,
             )
-            # Mettre à jour reference_id + antidater les mouvements au jour de production
-            MouvementStock.objects.filter(
-                reference_type='Production', reference_id__isnull=True,
-                cree_par=gerant,
-            ).update(reference_id=prod.id, created_at=_dt(date_prod))
+            for lot, preleve in allocations:
+                LotConsommation.objects.create(
+                    production=prod, lot_fournisseur=lot,
+                    quantite=preleve, cout_unitaire=lot.prix_achat,
+                )
+            for comp in compositions:
+                consommation = (comp.pourcentage / Decimal('100')) * qte_kg
+                avant = comp.mp.stock_disponible
+                mouvement = MouvementStock.objects.create(
+                    mp=comp.mp, type_mouvement='consommation',
+                    quantite_avant=avant, quantite_delta=-consommation,
+                    quantite_apres=avant - consommation,
+                    reference_id=prod.id, reference_type='Production', cree_par=gerant,
+                )
+                MouvementStock.objects.filter(pk=mouvement.pk).update(created_at=_dt(date_prod))
+                comp.mp.stock_disponible = avant - consommation
+                comp.mp.save(update_fields=['stock_disponible', 'updated_at'])
 
             if code not in lots_pf:
                 lots_pf[code] = []
@@ -423,16 +483,16 @@ class Command(BaseCommand):
         from user.models import Client
 
         clients_data = [
-            ('Ferme Bouzid & Fils',      '0555 12 34 56', 'Tizi-Ouzou',      12, 'Poulet, Dinde'),
-            ('Élevage El Hamel',         '0660 98 76 54', 'Béjaïa',           7, 'Poulet'),
-            ('SARL Avicole Djurdjura',   '0771 23 45 67', 'Tizi-Ouzou',      15, 'Poulet, Lapin'),
-            ('Ferme Ammour',             '0550 34 56 78', 'Boumerdès',        5, 'Poulet'),
-            ('Coopérative Agri-Kabyle',  '0662 45 67 89', 'Tizi-Ouzou',      20, 'Dinde, Lapin'),
-            ('M. Ouali Rabah',           '0770 56 78 90', 'Boghni',           3, 'Poulet'),
-            ('Élevage Taboukert',        '0558 67 89 01', 'Aïn El Hammam',    9, 'Lapin'),
-            ('SARL Proavi Tizi',         '0663 78 90 12', 'Tizi-Ouzou',      18, 'Poulet, Dinde'),
-            ('Mme Slimane Fatima',       '0771 89 01 23', 'Draa Ben Khedda',  2, 'Poulet'),
-            ('Ferme Cheurfa',            '0554 90 12 34', 'Freha',             6, 'Poulet, Lapin'),
+            ('Ferme Espoir & Fils',      '6 55 12 34 56', 'Yaoundé',     12, 'Poulet, Dinde'),
+            ('Élevage du Centre',        '6 60 98 76 54', 'Mbalmayo',      7, 'Poulet'),
+            ('Aviculture des Collines', '6 71 23 45 67', 'Bafoussam',    15, 'Poulet, Lapin'),
+            ('Ferme Horizon',           '6 50 34 56 78', 'Douala',        5, 'Poulet'),
+            ('Coopérative AgriPlus',    '6 62 45 67 89', 'Ebolowa',      20, 'Dinde, Lapin'),
+            ('Ferme Nkolbisson',        '6 70 56 78 90', 'Yaoundé',       3, 'Poulet'),
+            ('Élevage du Littoral',     '6 58 67 89 01', 'Douala',        9, 'Lapin'),
+            ('SARL Proavi Centre',      '6 63 78 90 12', 'Yaoundé',      18, 'Poulet, Dinde'),
+            ('Ferme Sainte-Marie',      '6 71 89 01 23', 'Bafang',        2, 'Poulet'),
+            ('Ferme des Plateaux',      '6 54 90 12 34', 'Bamenda',       6, 'Poulet, Lapin'),
         ]
 
         clients = []
@@ -457,7 +517,7 @@ class Command(BaseCommand):
         différentes quantités et différents clients.
         Décrémente automatiquement les Lots PF.
         """
-        from user.models import Commande, MouvementStock
+        from user.models import Commande, MouvementStock, Paiement
 
         today = date.today()
 
@@ -469,32 +529,34 @@ class Command(BaseCommand):
         pf_lapin  = lots_pf.get('LA-CROIS',  [])
 
         # Prix de vente alignés sur les coûts de revient calculés dans _formules()
-        # (~69,4 / 66,7 / 60,5 / 72,7 / 52,7 DA/kg) pour des marges réalistes de
+        # (~347 / 333 / 302 / 364 / 264 FCFA/kg) pour des marges de démonstration
         # provenderie (12 à 18 %). Les prix augmentent légèrement dans le temps.
-        # (client_idx, lot_pf, qte_kg, prix_unit_DA, jours_avant, statut_paiement, montant_paye_ratio)
+        # (client_idx, lot_pf, qte_kg, prix_unit_FCFA, jours_avant, mode_saisi, montant_paye_ratio)
         commandes_data = [
-            (0, pf_demarr[0], 1000, 80.0, 58, 'cash',    1.0),
-            (1, pf_crois[0],  2000, 76.0, 52, 'cash',    1.0),
-            (2, pf_fin[0],    1500, 69.0, 43, 'credit',  0.0),
-            (3, pf_demarr[0], 800,  80.0, 33, 'cash',    1.0),
-            (4, pf_dinde[0],  1200, 85.0, 19, 'credit',  0.0),
-            (0, pf_crois[0],  3000, 76.0, 27, 'cash',    1.0),
-            (5, pf_fin[0],    500,  69.0, 25, 'partiel', 0.5),
-            (7, pf_demarr[1], 2000, 81.0, 34, 'cash',    1.0),
-            (1, pf_crois[1],  2500, 77.0, 26, 'credit',  0.0),
-            (6, pf_lapin[0],  800,  62.0, 22, 'cash',    1.0),
-            (2, pf_fin[1],    2000, 70.0, 18, 'cash',    1.0),
-            (8, pf_demarr[1], 600,  81.0, 15, 'cash',    1.0),
-            (3, pf_crois[1],  1800, 77.0, 13, 'partiel', 0.6),
-            (9, pf_fin[1],    1000, 70.0, 11, 'credit',  0.0),
-            (4, pf_lapin[0],  500,  62.0,  9, 'cash',    1.0),
-            (0, pf_dinde[0],  800,  85.0,  7, 'credit',  0.0),
-            (7, pf_crois[1],  1500, 77.0,  4, 'cash',    1.0),
-            (5, pf_demarr[1], 400,  81.0,  2, 'partiel', 0.3),
+            (0, pf_demarr[0], 1000, 400.0, 58, 'cash',    1.0),
+            (1, pf_crois[0],  2000, 380.0, 52, 'cash',    1.0),
+            (2, pf_fin[0],    1500, 345.0, 43, 'credit',  0.0),
+            (3, pf_demarr[0], 800,  400.0, 33, 'cash',    1.0),
+            (4, pf_dinde[0],  1200, 425.0, 19, 'credit',  0.0),
+            (0, pf_crois[0],  3000, 380.0, 27, 'cash',    1.0),
+            (5, pf_fin[0],    500,  345.0, 25, 'partiel', 0.5),
+            (7, pf_demarr[1], 2000, 405.0, 34, 'cash',    1.0),
+            (1, pf_crois[1],  2500, 385.0, 26, 'credit',  0.0),
+            (6, pf_lapin[0],  800,  310.0, 22, 'cash',    1.0),
+            (2, pf_fin[1],    2000, 350.0, 18, 'cash',    1.0),
+            (8, pf_demarr[1], 600,  405.0, 15, 'cash',    1.0),
+            (3, pf_crois[1],  1800, 385.0, 13, 'partiel', 0.6),
+            (9, pf_fin[1],    1000, 350.0, 11, 'credit',  0.0),
+            (4, pf_lapin[0],  500,  310.0,  9, 'cash',    1.0),
+            (0, pf_dinde[0],  800,  425.0,  7, 'credit',  0.0),
+            (7, pf_crois[1],  1500, 385.0,  4, 'cash',    1.0),
+            (5, pf_demarr[1], 400,  405.0,  2, 'partiel', 0.3),
         ]
 
         gerants = [gerant1, gerant2]
         for i, (cli_idx, lot_pf, qte, prix, jours, paiement, ratio) in enumerate(commandes_data):
+            qte = _decimal(qte)
+            prix = _decimal(prix)
             if lot_pf is None or lot_pf.quantite < qte:
                 continue
 
@@ -502,7 +564,9 @@ class Command(BaseCommand):
             gerant = gerants[i % 2]
             date_cmd = today - timedelta(days=jours)
             montant_total = qte * prix
-            montant_paye = round(montant_total * ratio, 2)
+            montant_paye = (montant_total * _decimal(ratio)).quantize(Decimal('0.01'))
+            mode_paiement = 'cash' if paiement == 'cash' else 'credit'
+            etat_paiement = 'paye' if montant_paye == montant_total else ('partiel' if montant_paye > 0 else 'non_paye')
 
             commande = Commande.objects.create(
                 client=client,
@@ -510,9 +574,11 @@ class Command(BaseCommand):
                 numero_commande=f"CMD-{uuid.uuid4().hex[:8].upper()}",
                 quantite=qte,
                 prix_unitaire=prix,
+                cout_unitaire=lot_pf.cout_revient,
                 montant_total=montant_total,
                 montant_paye=montant_paye,
-                statut_paiement=paiement,
+                mode_paiement=mode_paiement,
+                statut_paiement=etat_paiement,
                 statut='livree' if jours > 5 else 'confirmee',
                 cree_par=gerant,
             )
@@ -521,6 +587,11 @@ class Command(BaseCommand):
             # (graphique CA sur 30 jours réduit à un seul point).
             Commande.objects.filter(pk=commande.pk).update(date_commande=date_cmd)
             commande.date_commande = date_cmd
+            if montant_paye > 0:
+                paiement_obj = Paiement.objects.create(
+                    commande=commande, montant=montant_paye, cree_par=gerant,
+                )
+                Paiement.objects.filter(pk=paiement_obj.pk).update(created_at=_dt(date_cmd))
 
             # Décrémentation Lot PF + mouvement (antidaté au jour de vente)
             avant = lot_pf.quantite
@@ -547,13 +618,15 @@ class Command(BaseCommand):
         from user.models import Parametre
 
         params = [
-            ('nom_provenderie',     'Provenderie El Baraka',  'Nom affiché sur les factures'),
+            ('nom_provenderie',     'PROVENDIX',               'Nom affiché sur les factures'),
             ('seuil_alerte_stock',  '500',                    'Seuil d\'alerte stock global (kg)'),
             ('duree_peremption_pf', '180',                    'Durée de péremption PF en jours'),
-            ('devise',              'DA',                     'Devise (Dinars Algériens)'),
-            ('adresse_provenderie', 'Zone industrielle Oued Aïssi, Tizi-Ouzou 15000', 'Adresse de la provenderie'),
-            ('telephone',           '026 21 34 56',           'Téléphone principal'),
-            ('nif',                 '00912345678901234',       'Numéro d\'Identification Fiscale'),
+            ('devise',              'XAF',                    'Devise ISO (franc CFA d\'Afrique centrale)'),
+            ('coefficient_transformation', '1.08',            'Coefficient des frais de transformation'),
+            ('marge_vente_mp',       '20',                    'Marge automatique sur les ventes de MP (%)'),
+            ('adresse_provenderie', 'Yaoundé, Cameroun',     'Adresse de la provenderie'),
+            ('telephone',           '+237 600 00 00 00',      'Téléphone principal'),
+            ('nif',                 'DEMO-NIF',                'Numéro d\'Identification Fiscale'),
         ]
 
         for cle, valeur, description in params:

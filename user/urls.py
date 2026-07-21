@@ -2,9 +2,9 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     LoginView, LogoutView, RefreshTokenView,
-    DashboardStatsView, RapportVentesView, NotificationsView,
+    DashboardStatsView, RapportVentesView, RapportExportView, NotificationsView,
     UtilisateurViewSet, ClientViewSet, AnimalViewSet, StadeVieViewSet,
-    MPViewSet, LotFournisseurViewSet, FormuleViewSet, LotPFViewSet,
+    MPViewSet, AccessoireViewSet, LotFournisseurViewSet, FormuleViewSet, LotPFViewSet,
     ProductionViewSet, CommandeViewSet, VenteViewSet, HistoriqueViewSet,
     StockViewSet, MouvementStockViewSet, LogEntryViewSet, ParametreViewSet,
 )
@@ -15,6 +15,7 @@ router.register(r'clients', ClientViewSet, basename='client')
 router.register(r'animaux', AnimalViewSet, basename='animal')
 router.register(r'stages-vie', StadeVieViewSet, basename='stadevie')
 router.register(r'matieres-premieres', MPViewSet, basename='mp')
+router.register(r'accessoires', AccessoireViewSet, basename='accessoire')
 router.register(r'lots-fournisseurs', LotFournisseurViewSet, basename='lotfournisseur')
 router.register(r'formules', FormuleViewSet, basename='formule')
 router.register(r'lots-pf', LotPFViewSet, basename='lotpf')
@@ -33,6 +34,7 @@ urlpatterns = [
     path('auth/refresh', RefreshTokenView.as_view(), name='refresh'),
     path('dashboard/stats', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('rapports/ventes', RapportVentesView.as_view(), name='rapports-ventes'),
+    path('rapports/export', RapportExportView.as_view(), name='rapports-export'),
     path('notifications', NotificationsView.as_view(), name='notifications'),
     path('', include(router.urls)),
 ]

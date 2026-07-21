@@ -14,7 +14,26 @@ class IsSuperviseurOrAdmin(permissions.BasePermission):
 
 class IsAuthenticated(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user and hasattr(request.user, 'role')
+        return bool(
+            request.user
+            and hasattr(request.user, 'role')
+            and getattr(request.user, 'is_active', False)
+        )
+
+
+class IsSuperviseurWriteAuthenticatedRead(permissions.BasePermission):
+    """Lecture pour tout utilisateur actif, écriture pour le contrôle administratif."""
+
+    def has_permission(self, request, view):
+        if not (
+            request.user
+            and hasattr(request.user, 'role')
+            and getattr(request.user, 'is_active', False)
+        ):
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user.role in ['admin', 'superviseur']
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):

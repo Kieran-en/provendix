@@ -16,6 +16,7 @@ ENV/
 db.sqlite3
 media/
 staticfiles/
+backups/
 local_settings.py
 
 # ── Secrets / Config ─────────────────────────────

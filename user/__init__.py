@@ -1,0 +1,1 @@
+"""Application métier PROVENDIX."""
