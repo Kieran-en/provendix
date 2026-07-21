@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Users, Trash2, KeyRound, Loader2, Shield, User } from 'lucide-react'
+import { Plus, Users, Trash2, KeyRound, Loader2, Shield, User, Pencil } from 'lucide-react'
 import api from '@/lib/api'
 import { Utilisateur, PaginatedResponse } from '@/types'
 import { toast } from 'sonner'
@@ -18,7 +18,7 @@ import { useAuthStore } from '@/store/auth.store'
 const createSchema = z.object({
   nom: z.string().min(2, 'Nom requis'),
   login: z.string().min(3, 'Login requis (min. 3 caractères)'),
-  mot_de_passe: z.string().min(6, 'Mot de passe requis (min. 6 caractères)'),
+  mot_de_passe: z.string().min(8, 'Mot de passe requis (min. 8 caractères)'),
   role: z.enum(['gerant', 'superviseur']),
 })
 type CreateFormData = z.infer<typeof createSchema>
@@ -27,6 +27,10 @@ export default function UtilisateursPage() {
   const { user: currentUser } = useAuthStore()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Utilisateur | null>(null)
+  const [editNom, setEditNom] = useState('')
+  const [editRole, setEditRole] = useState<'gerant' | 'superviseur'>('gerant')
+  const [editActif, setEditActif] = useState(true)
 
   const { data, isLoading } = useQuery({
     queryKey: ['utilisateurs'],
@@ -50,7 +54,8 @@ export default function UtilisateursPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: CreateFormData) => api.post('/users', {
-      nom: data.login,
+      nom: data.nom,
+      login: data.login,
       password: data.mot_de_passe,
       role: data.role,
       is_active: true,
@@ -86,6 +91,19 @@ export default function UtilisateursPage() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: () => api.patch(`/users/${editing?.id}`, { nom: editNom, role: editRole, is_active: editActif }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['utilisateurs'] }); setEditing(null); toast.success('Utilisateur modifié') },
+    onError: (err: AxiosError<{ error?: string }>) => toast.error(err.response?.data?.error ?? 'Modification impossible'),
+  })
+
+  const startEdit = (utilisateur: Utilisateur) => {
+    setEditing(utilisateur)
+    setEditNom(utilisateur.nom)
+    setEditRole(utilisateur.role === 'admin' ? 'superviseur' : utilisateur.role)
+    setEditActif(utilisateur.is_active)
+  }
+
   const handleDelete = (id: number, nom: string) => {
     if (id === currentUser?.id) {
       toast.error('Vous ne pouvez pas supprimer votre propre compte')
@@ -97,8 +115,8 @@ export default function UtilisateursPage() {
   }
 
   const handleResetPassword = (id: number) => {
-    const newPassword = prompt('Nouveau mot de passe (min. 6 caractères) :')
-    if (!newPassword || newPassword.length < 6) {
+    const newPassword = prompt('Nouveau mot de passe (min. 8 caractères) :')
+    if (!newPassword || newPassword.length < 8) {
       toast.error('Mot de passe trop court')
       return
     }
@@ -170,6 +188,8 @@ export default function UtilisateursPage() {
         </div>
       )}
 
+      {editing && <div className="rounded-xl border border-slate-200 bg-white p-5"><h3 className="mb-4 text-sm font-semibold text-slate-800">Modifier {editing.login}</h3><div className="grid gap-3 sm:grid-cols-3"><input value={editNom} onChange={(event) => setEditNom(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" /><select value={editRole} onChange={(event) => setEditRole(event.target.value as 'gerant' | 'superviseur')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="gerant">Gérant</option><option value="superviseur">Superviseur</option></select><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editActif} onChange={(event) => setEditActif(event.target.checked)} /> Compte actif</label></div><div className="mt-4 flex gap-2"><button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-lg border border-slate-300 py-2 text-sm">Annuler</button><button type="button" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending || editNom.trim().length < 2} className="flex-1 rounded-lg bg-emerald-600 py-2 text-sm font-medium text-white disabled:opacity-50">Enregistrer</button></div></div>}
+
       {/* Liste */}
       {isLoading ? (
         <LoadingSpinner />
@@ -194,10 +214,11 @@ export default function UtilisateursPage() {
                 <p className="text-xs text-slate-400 font-mono">{u.login}</p>
               </div>
               <Badge
-                label={u.role === 'superviseur' ? 'Superviseur' : 'Gérant'}
+                label={!u.is_active ? 'Inactif' : u.role === 'superviseur' || u.role === 'admin' ? 'Superviseur' : 'Gérant'}
                 variant={u.role === 'superviseur' ? 'info' : 'default'}
               />
               <div className="flex items-center gap-1 ml-2">
+                <button onClick={() => startEdit(u)} className="p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-md" title="Modifier"><Pencil className="h-4 w-4" /></button>
                 <button
                   onClick={() => handleResetPassword(u.id)}
                   className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition"

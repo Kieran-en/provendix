@@ -1,25 +1,19 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Package, Wheat, AlertTriangle } from 'lucide-react'
+import { Package, Wheat, AlertTriangle, PackagePlus } from 'lucide-react'
 import api from '@/lib/api'
-import { StockMP, StockPF } from '@/types'
+import { StockResponse } from '@/types'
 import { formatWeight, formatCurrency } from '@/lib/utils'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import Badge from '@/components/ui/Badge'
-
-interface StocksData {
-  matieres_premieres: StockMP[]
-  produits_finis: StockPF[]
-}
-
-const SEUIL_ALERTE = 500
+import Link from 'next/link'
 
 export default function StocksPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['stocks'],
     queryFn: async () => {
-      const res = await api.get<StocksData>('/stocks')
+      const res = await api.get<StockResponse>('/stocks')
       return res.data
     },
   })
@@ -28,7 +22,8 @@ export default function StocksPage() {
 
   const mp = data?.matieres_premieres ?? []
   const pf = data?.produits_finis ?? []
-  const alertes = mp.filter((s) => s.quantite_totale < SEUIL_ALERTE)
+  const accessoires = data?.accessoires ?? []
+  const alertes = mp.filter((s) => s.quantite_totale < s.matiere_premiere.seuil_alerte)
 
   return (
     <div className="space-y-6">
@@ -47,7 +42,7 @@ export default function StocksPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         {/* Matières premières */}
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-100">
@@ -60,7 +55,7 @@ export default function StocksPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {mp.map((stock) => {
-                const alerte = stock.quantite_totale < SEUIL_ALERTE
+                const alerte = stock.quantite_totale < stock.matiere_premiere.seuil_alerte
                 return (
                   <div key={stock.matiere_premiere.id} className="flex items-center gap-3 px-5 py-3.5">
                     <div className="flex-1 min-w-0">
@@ -104,9 +99,9 @@ export default function StocksPage() {
                 return (
                   <div key={stock.lot_pf.id} className="flex items-center gap-3 px-5 py-3.5">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">
+                      <Link href={`/lots-pf/${stock.lot_pf.id}`} className="block truncate text-sm font-medium text-slate-800 hover:text-emerald-700">
                         {stock.lot_pf.formule?.nom ?? `Lot #${stock.lot_pf.id}`}
-                      </p>
+                      </Link>
                       <p className="text-xs text-slate-400 mt-0.5">
                         Coût : {formatCurrency(stock.lot_pf.cout_revient)}/kg
                       </p>
@@ -125,6 +120,20 @@ export default function StocksPage() {
                 )
               })}
             </div>
+          )}
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="flex items-center gap-2.5 border-b border-slate-100 px-5 py-4">
+            <PackagePlus className="h-4 w-4 text-sky-600" />
+            <h3 className="text-sm font-semibold text-slate-700">Accessoires</h3>
+            <span className="ml-auto text-xs text-slate-400">{accessoires.length} articles</span>
+          </div>
+          {accessoires.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">Aucun accessoire</p> : (
+            <div className="divide-y divide-slate-100">{accessoires.map((accessoire) => {
+              const alerte = accessoire.stock_disponible <= accessoire.seuil_alerte
+              return <div key={accessoire.id} className="flex items-center gap-3 px-5 py-3.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-800">{accessoire.nom}</p><p className="mt-0.5 text-xs text-slate-400">{formatCurrency(accessoire.prix_vente)} / {accessoire.unite}</p></div><div className="text-right"><p className={`text-sm font-semibold ${alerte ? 'text-rose-600' : 'text-slate-800'}`}>{accessoire.stock_disponible} {accessoire.unite}</p><Badge label={alerte ? 'Stock bas' : 'OK'} variant={alerte ? 'danger' : 'success'} className="mt-0.5" /></div></div>
+            })}</div>
           )}
         </div>
       </div>

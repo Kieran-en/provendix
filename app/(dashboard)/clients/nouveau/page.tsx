@@ -70,7 +70,7 @@ export default function NouveauClientPage() {
             </label>
             <input
               {...register('nom')}
-              placeholder="Ex: Ferme El Baraka"
+              placeholder="Ex: Ferme Espoir"
               className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
             />
             {errors.nom && <p className="text-red-500 text-xs mt-1">{errors.nom.message}</p>}

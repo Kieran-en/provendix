@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { AxiosError } from 'axios'
+import { getCurrencyLabel } from '@/lib/utils'
 
 const schema = z.object({
   nom: z.string().min(2, 'Nom requis (min. 2 caractères)'),
@@ -35,7 +36,7 @@ export default function NouvelleMPPage() {
     mutationFn: (data: FormData) =>
       api.post('/matieres-premieres', {
         nom: data.nom,
-        prix_kg: parseFloat(data.prix_kg),
+        prix_achat: parseFloat(data.prix_kg),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matieres-premieres'] })
@@ -79,7 +80,7 @@ export default function NouvelleMPPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Prix d&apos;achat (DA/kg) <span className="text-red-500">*</span>
+              Prix d&apos;achat ({getCurrencyLabel()}/kg) <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -91,7 +92,7 @@ export default function NouvelleMPPage() {
                 className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition pr-12"
               />
               <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                DA/kg
+                {getCurrencyLabel()}/kg
               </span>
             </div>
             {errors.prix_kg && (
@@ -100,7 +101,8 @@ export default function NouvelleMPPage() {
           </div>
 
           <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
-            Le stock initial sera de 0 kg. Il augmentera automatiquement lors de la réception de lots fournisseurs.
+            Le prix de vente sera calculé automatiquement avec la marge configurée (20 % par défaut).
+            Le stock augmentera lors de la réception des lots fournisseurs.
           </p>
 
           <div className="flex gap-3 pt-2">

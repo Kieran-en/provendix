@@ -1,7 +1,7 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
-import { Plus, Wheat, Search, Edit2, TrendingDown } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, Wheat, Search, Edit2, TrendingDown, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import api from '@/lib/api'
@@ -10,10 +10,13 @@ import { formatCurrency, formatWeight } from '@/lib/utils'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import Badge from '@/components/ui/Badge'
+import { toast } from 'sonner'
+import { AxiosError } from 'axios'
 
 export default function MatieresPremieres() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['matieres-premieres', page, search],
@@ -27,6 +30,17 @@ export default function MatieresPremieres() {
 
   const items = data?.data ?? []
   const total = data?.total ?? 0
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/matieres-premieres/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['matieres-premieres'] })
+      toast.success('Matière première supprimée ou archivée')
+    },
+    onError: (error: AxiosError<{ error?: string }>) => {
+      toast.error(error.response?.data?.error ?? 'Suppression impossible')
+    },
+  })
 
   return (
     <div className="space-y-5">
@@ -80,8 +94,9 @@ export default function MatieresPremieres() {
                 <tr className="border-b border-slate-100">
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 bg-slate-50">Nom</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Stock actuel</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Seuil d'alerte</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Prix / kg</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Seuil d&apos;alerte</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Achat / kg</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Vente / kg</th>
                   <th className="px-4 py-3 text-center font-semibold text-slate-600 bg-slate-50">État</th>
                   <th className="px-4 py-3 bg-slate-50" />
                 </tr>
@@ -112,22 +127,34 @@ export default function MatieresPremieres() {
                         {formatWeight(mp.seuil_alerte)}
                       </td>
                       <td className="px-4 py-3.5 text-right text-slate-700">
-                        {formatCurrency(mp.prix_kg)}/kg
+                        {formatCurrency(mp.prix_achat_moyen)}/kg
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-emerald-700 font-medium">
+                        {formatCurrency(mp.prix_vente)}/kg
                       </td>
                       <td className="px-4 py-3.5 text-center">
                         <Badge
-                          label={alerte ? 'Stock bas' : 'Normal'}
-                          variant={alerte ? 'danger' : 'success'}
+                          label={!mp.actif ? 'Archivée' : alerte ? 'Stock bas' : 'Normal'}
+                          variant={!mp.actif || alerte ? 'danger' : 'success'}
                         />
                       </td>
                       <td className="px-4 py-3.5 text-right">
-                        <Link
-                          href={`/matieres-premieres/${mp.id}`}
-                          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 transition-colors font-medium"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          Modifier
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/matieres-premieres/${mp.id}`}
+                            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 transition-colors font-medium"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" /> Modifier
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => confirm(`Supprimer ou archiver « ${mp.nom} » ?`) && deleteMutation.mutate(mp.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                            title="Supprimer ou archiver"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

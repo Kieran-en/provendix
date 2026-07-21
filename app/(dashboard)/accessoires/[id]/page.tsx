@@ -1,0 +1,36 @@
+'use client'
+
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowLeft } from 'lucide-react'
+import api from '@/lib/api'
+import { Accessoire } from '@/types'
+import AccessoireForm from '@/components/ui/AccessoireForm'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+
+export default function ModifierAccessoirePage() {
+  const { id } = useParams<{ id: string }>()
+  const { data, isLoading } = useQuery({
+    queryKey: ['accessoire', id],
+    queryFn: async () => (await api.get<Accessoire>(`/accessoires/${id}`)).data,
+  })
+
+  if (isLoading || !data) return <LoadingSpinner />
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <Link href="/accessoires" className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-400">
+        <ArrowLeft className="h-4 w-4" /> Retour aux accessoires
+      </Link>
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7">
+        <div className="mb-6">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-400">Catalogue commercial</p>
+          <h2 className="mt-1 text-xl font-extrabold text-slate-900 dark:text-white">Modifier l’accessoire</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Mettez à jour les informations visibles lors de la vente.</p>
+        </div>
+        <AccessoireForm accessoire={data} />
+      </div>
+    </div>
+  )
+}

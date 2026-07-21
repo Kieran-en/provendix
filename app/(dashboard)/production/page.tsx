@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Factory, Search } from 'lucide-react'
+import { Plus, Factory, Search, Eye } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import api from '@/lib/api'
@@ -81,12 +81,12 @@ export default function ProductionPage() {
                   <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Coût de revient</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 bg-slate-50">Date</th>
                   <th className="px-4 py-3 text-center font-semibold text-slate-600 bg-slate-50">Lot PF</th>
+                  <th className="px-4 py-3 bg-slate-50" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.map((prod) => {
-                  const p = prod as any
-                  const lotPF = p.lot_pf_detail
+                  const lotPF = prod.lot_pf_detail
                   const stockRatio = lotPF
                     ? lotPF.quantite_restante / (lotPF.quantite_initiale || 1)
                     : null
@@ -100,10 +100,10 @@ export default function ProductionPage() {
                           </div>
                           <div>
                             <p className="font-medium text-slate-800">
-                              {p.formule_nom ?? `Formule #${p.formule}`}
+                              {prod.formule_nom ?? `Formule #${prod.formule}`}
                             </p>
-                            {p.formule_code && (
-                              <p className="text-xs text-slate-400 font-mono">{p.formule_code}</p>
+                            {prod.formule_code && (
+                              <p className="text-xs text-slate-400 font-mono">{prod.formule_code}</p>
                             )}
                           </div>
                         </div>
@@ -117,7 +117,7 @@ export default function ProductionPage() {
                       <td className="px-4 py-3.5 text-right text-slate-600">
                         {lotPF ? `${formatCurrency(lotPF.cout_revient)}/kg` : '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600">{formatDate(p.date ?? p.date_production)}</td>
+                      <td className="px-4 py-3.5 text-slate-600">{formatDate(prod.date ?? prod.date_production)}</td>
                       <td className="px-4 py-3.5 text-center">
                         {stockRatio !== null ? (
                           <Badge
@@ -128,6 +128,7 @@ export default function ProductionPage() {
                           <span className="text-slate-300">—</span>
                         )}
                       </td>
+                      <td className="px-4 py-3.5 text-right"><Link href={`/production/${prod.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-emerald-600"><Eye className="h-3.5 w-3.5" /> Détail</Link></td>
                     </tr>
                   )
                 })}

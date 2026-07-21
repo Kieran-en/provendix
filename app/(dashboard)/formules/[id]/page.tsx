@@ -57,8 +57,7 @@ export default function EditFormulePage() {
         code: formule.code,
         compositions: (formule.compositions ?? []).map((c) => ({
           matiere_premiere_id: String(c.matiere_premiere_id),
-          quantite: String(c.quantite),
-          aliment_fourni: c.aliment_fourni ?? '',
+          pourcentage: String(c.pourcentage),
         })),
       })
     }
@@ -71,7 +70,7 @@ export default function EditFormulePage() {
         code: data.code.toUpperCase(),
         compositions: data.compositions.map((c) => ({
           mp_id: parseInt(c.matiere_premiere_id),
-          quantite: parseFloat(c.quantite),
+          pourcentage: parseFloat(c.pourcentage),
         })),
       }),
     onSuccess: () => {

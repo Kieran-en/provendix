@@ -1,23 +1,22 @@
 'use client'
 
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ClipboardList, Loader2, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
-import { MatierePremiere, LotPF, PaginatedResponse } from '@/types'
+import { Accessoire, MatierePremiere, LotPF, PaginatedResponse } from '@/types'
 import { formatWeight } from '@/lib/utils'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { toast } from 'sonner'
 import { AxiosError } from 'axios'
 
 const schema = z.object({
-  type: z.enum(['mp', 'pf']),
+  type: z.enum(['mp', 'pf', 'accessoire']),
   cible_id: z.string().min(1, 'Sélectionnez une cible'),
   quantite: z.string().min(1, 'Quantité requise')
-    .refine((v) => !isNaN(parseFloat(v)), 'Invalide'),
+    .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) !== 0, 'La quantité doit être différente de zéro'),
   justification: z.string().min(5, 'Justification requise (min. 5 caractères)'),
 })
 
@@ -25,8 +24,6 @@ type FormData = z.infer<typeof schema>
 
 export default function InventairePage() {
   const queryClient = useQueryClient()
-  const [type, setType] = useState<'mp' | 'pf'>('mp')
-
   const { data: mpList, isLoading: loadingMP } = useQuery({
     queryKey: ['matieres-premieres-all'],
     queryFn: async () => {
@@ -45,19 +42,24 @@ export default function InventairePage() {
     },
   })
 
+  const { data: accessoires, isLoading: loadingAccessoires } = useQuery({
+    queryKey: ['accessoires-all'],
+    queryFn: async () => (await api.get<PaginatedResponse<Accessoire>>('/accessoires', { params: { limit: 200 } })).data.data,
+  })
+
   const {
     register,
     handleSubmit,
     reset,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { type: 'mp' },
   })
 
-  const watchedType = watch('type')
+  const watchedType = useWatch({ control, name: 'type' })
 
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
@@ -65,9 +67,9 @@ export default function InventairePage() {
       return api.post('/stocks/ajustement', {
         type_stock: data.type,
         type_ajustement: qty >= 0 ? 'ajout' : 'retrait',
-        ...(data.type === 'mp'
-          ? { mp: parseInt(data.cible_id) }
-          : { lot_pf: parseInt(data.cible_id) }),
+        ...(data.type === 'mp' ? { mp: parseInt(data.cible_id) } : {}),
+        ...(data.type === 'pf' ? { lot_pf: parseInt(data.cible_id) } : {}),
+        ...(data.type === 'accessoire' ? { accessoire: parseInt(data.cible_id) } : {}),
         quantite: Math.abs(qty),
         justification: data.justification,
       })
@@ -76,6 +78,7 @@ export default function InventairePage() {
       queryClient.invalidateQueries({ queryKey: ['stocks'] })
       queryClient.invalidateQueries({ queryKey: ['matieres-premieres'] })
       queryClient.invalidateQueries({ queryKey: ['lots-pf-all'] })
+      queryClient.invalidateQueries({ queryKey: ['accessoires'] })
       toast.success('Ajustement enregistré')
       reset({ type: watchedType })
     },
@@ -104,8 +107,8 @@ export default function InventairePage() {
           {/* Type */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Type de stock</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(['mp', 'pf'] as const).map((t) => (
+            <div className="grid grid-cols-3 gap-2">
+              {(['mp', 'pf', 'accessoire'] as const).map((t) => (
                 <label key={t} className="relative cursor-pointer">
                   <input
                     {...register('type')}
@@ -115,11 +118,10 @@ export default function InventairePage() {
                     onChange={() => {
                       setValue('type', t)
                       setValue('cible_id', '')
-                      setType(t)
                     }}
                   />
                   <div className="px-4 py-2.5 border border-slate-300 rounded-lg text-center text-sm font-medium text-slate-600 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-700 transition">
-                    {t === 'mp' ? 'Matière Première' : 'Produit Fini'}
+                    {t === 'mp' ? 'Matière Première' : t === 'pf' ? 'Produit Fini' : 'Accessoire'}
                   </div>
                 </label>
               ))}
@@ -129,9 +131,9 @@ export default function InventairePage() {
           {/* Cible */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {watchedType === 'mp' ? 'Matière première' : 'Lot produit fini'} <span className="text-red-500">*</span>
+              {watchedType === 'mp' ? 'Matière première' : watchedType === 'pf' ? 'Lot produit fini' : 'Accessoire'} <span className="text-red-500">*</span>
             </label>
-            {loadingMP || loadingPF ? (
+            {loadingMP || loadingPF || loadingAccessoires ? (
               <LoadingSpinner size="sm" className="p-2" />
             ) : (
               <select
@@ -139,15 +141,17 @@ export default function InventairePage() {
                 className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
               >
                 <option value="">Sélectionner...</option>
-                {watchedType === 'mp'
-                  ? mpList?.map((mp) => (
+                {watchedType === 'mp' ? mpList?.map((mp) => (
                       <option key={mp.id} value={mp.id}>
                         {mp.nom} — {formatWeight(mp.quantite)}
                       </option>
-                    ))
-                  : lotsPF?.map((lot) => (
+                    )) : watchedType === 'pf' ? lotsPF?.map((lot) => (
                       <option key={lot.id} value={lot.id}>
-                        {(lot as any).formule_nom ?? `Lot #${lot.id}`} — {formatWeight(lot.quantite_restante)}
+                        {lot.formule_nom ?? `Lot #${lot.id}`} — {formatWeight(lot.quantite_restante)}
+                      </option>
+                    )) : accessoires?.map((accessoire) => (
+                      <option key={accessoire.id} value={accessoire.id}>
+                        {accessoire.nom} — {accessoire.stock_disponible} {accessoire.unite}
                       </option>
                     ))}
               </select>
@@ -158,7 +162,7 @@ export default function InventairePage() {
           {/* Quantité */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Quantité ajustée (kg) <span className="text-red-500">*</span>
+              Quantité ajustée ({watchedType === 'accessoire' ? 'unité sélectionnée' : 'kg'}) <span className="text-red-500">*</span>
             </label>
             <p className="text-xs text-slate-400 mb-1.5">
               Entrez une valeur <strong>positive</strong> pour augmenter, <strong>négative</strong> pour diminuer.
@@ -171,7 +175,7 @@ export default function InventairePage() {
                 placeholder="Ex: +50 ou -20"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition pr-10"
               />
-              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">kg</span>
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{watchedType === 'accessoire' ? 'unité' : 'kg'}</span>
             </div>
             {errors.quantite && <p className="text-red-500 text-xs mt-1">{errors.quantite.message}</p>}
           </div>

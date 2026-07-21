@@ -1,17 +1,20 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
-import { Plus, Users, Search, Eye, Phone } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, Users, Search, Eye, Phone, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import api from '@/lib/api'
 import { Client, PaginatedResponse } from '@/types'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
+import { toast } from 'sonner'
+import { AxiosError } from 'axios'
 
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['clients', page, search],
@@ -25,6 +28,11 @@ export default function ClientsPage() {
 
   const items = data?.data ?? []
   const total = data?.total ?? 0
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/clients/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['clients'] }); toast.success('Client supprimé') },
+    onError: (error: AxiosError<{ error?: string }>) => toast.error(error.response?.data?.error ?? 'Ce client ne peut pas être supprimé'),
+  })
 
   return (
     <div className="space-y-5">
@@ -115,13 +123,7 @@ export default function ClientsPage() {
                       {client.annees_elevage > 0 ? `${client.annees_elevage} ans` : '—'}
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      <Link
-                        href={`/clients/${client.id}`}
-                        className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 transition-colors font-medium"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Voir
-                      </Link>
+                      <div className="flex items-center justify-end gap-2"><Link href={`/clients/${client.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-emerald-600"><Eye className="h-3.5 w-3.5" /> Voir / modifier</Link><button type="button" onClick={() => confirm(`Supprimer « ${client.nom} » ?`) && deleteMutation.mutate(client.id)} className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Supprimer"><Trash2 className="h-3.5 w-3.5" /></button></div>
                     </td>
                   </tr>
                 ))}

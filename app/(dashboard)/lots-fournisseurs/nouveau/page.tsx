@@ -12,7 +12,7 @@ import api from '@/lib/api'
 import { MatierePremiere, PaginatedResponse } from '@/types'
 import { AxiosError } from 'axios'
 import { useWatch } from 'react-hook-form'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, getCurrencyLabel } from '@/lib/utils'
 
 const schema = z.object({
   matiere_premiere_id: z.string().min(1, 'Sélectionnez une matière première'),
@@ -133,7 +133,7 @@ export default function NouveauLotPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Coût d&apos;achat (DA/kg) <span className="text-red-500">*</span>
+              Coût d&apos;achat ({getCurrencyLabel()}/kg) <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -144,7 +144,7 @@ export default function NouveauLotPage() {
                 placeholder="0.00"
                 className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition pr-16"
               />
-              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">DA/kg</span>
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{getCurrencyLabel()}/kg</span>
             </div>
             {errors.cout_kg && (
               <p className="text-red-500 text-xs mt-1">{errors.cout_kg.message}</p>

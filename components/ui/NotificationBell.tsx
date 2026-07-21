@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Bell, AlertTriangle, Info, X, Package } from 'lucide-react'
+import { Bell, AlertTriangle, Info, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import Link from 'next/link'
@@ -52,8 +52,11 @@ export default function NotificationBell() {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="relative p-1.5 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition"
+        aria-label={count > 0 ? `Notifications, ${count} non lues` : 'Notifications'}
+        aria-expanded={open}
+        className="relative rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-slate-800 hover:shadow-sm dark:hover:bg-slate-800 dark:hover:text-slate-100"
       >
         <Bell className="w-5 h-5" />
         {count > 0 && (
@@ -70,7 +73,9 @@ export default function NotificationBell() {
               Notifications {count > 0 && <span className="text-rose-500">({count})</span>}
             </span>
             <button
+              type="button"
               onClick={() => setOpen(false)}
+              aria-label="Fermer les notifications"
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               <X className="w-4 h-4" />

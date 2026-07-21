@@ -13,6 +13,7 @@ import { MatierePremiere } from '@/types'
 import { AxiosError } from 'axios'
 import { useEffect } from 'react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { getCurrencyLabel } from '@/lib/utils'
 
 const schema = z.object({
   nom: z.string().min(2, 'Nom requis (min. 2 caractères)'),
@@ -46,7 +47,7 @@ export default function EditMPPage() {
 
   useEffect(() => {
     if (mp) {
-      reset({ nom: mp.nom, prix_kg: String(mp.prix_kg) })
+      reset({ nom: mp.nom, prix_kg: String(mp.prix_achat_moyen) })
     }
   }, [mp, reset])
 
@@ -54,7 +55,7 @@ export default function EditMPPage() {
     mutationFn: (data: FormData) =>
       api.put(`/matieres-premieres/${id}`, {
         nom: data.nom,
-        prix_kg: parseFloat(data.prix_kg),
+        prix_achat: parseFloat(data.prix_kg),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matieres-premieres'] })
@@ -103,7 +104,7 @@ export default function EditMPPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Prix d&apos;achat (DA/kg) <span className="text-red-500">*</span>
+              Prix d&apos;achat ({getCurrencyLabel()}/kg) <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -114,7 +115,7 @@ export default function EditMPPage() {
                 className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition pr-12"
               />
               <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                DA/kg
+                {getCurrencyLabel()}/kg
               </span>
             </div>
             {errors.prix_kg && <p className="text-red-500 text-xs mt-1">{errors.prix_kg.message}</p>}

@@ -29,11 +29,34 @@ export function formatDateTime(dateStr: string | null | undefined): string {
   }).format(d)
 }
 
+export type CurrencyCode = 'XAF' | 'XOF'
+
+const DEFAULT_CURRENCY: CurrencyCode = 'XAF'
+
+export function getCurrencyCode(): CurrencyCode {
+  if (typeof window === 'undefined') return DEFAULT_CURRENCY
+  const stored = localStorage.getItem('provendix_currency_code')
+  return stored === 'XOF' ? 'XOF' : 'XAF'
+}
+
+export function setCurrencyCode(code: string): void {
+  if (typeof window !== 'undefined' && (code === 'XAF' || code === 'XOF')) {
+    localStorage.setItem('provendix_currency_code', code)
+  }
+}
+
+export function getCurrencyLabel(): string {
+  return 'FCFA'
+}
+
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('fr-DZ', {
+  const currency = getCurrencyCode()
+  const locale = currency === 'XOF' ? 'fr-SN' : 'fr-CM'
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'DZD',
+    currency,
     minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount)
 }
 

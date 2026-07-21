@@ -11,7 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Formule, PaginatedResponse } from '@/types'
 import { AxiosError } from 'axios'
-import { formatWeight, formatCurrency } from '@/lib/utils'
+import { formatWeight } from '@/lib/utils'
 
 const schema = z.object({
   formule_id: z.string().min(1, 'Sélectionnez une formule'),
@@ -52,8 +52,8 @@ export default function NouvelleProductionPage() {
 
   // Calcul des consommations MP estimées
   const consommations = formuleSelectionnee?.compositions?.map((comp) => ({
-    nom: (comp as any).mp_nom ?? comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`,
-    quantite: comp.quantite * qte,
+    nom: comp.mp_nom ?? comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`,
+    quantite: (comp.pourcentage / 100) * qte,
   }))
 
   const mutation = useMutation({

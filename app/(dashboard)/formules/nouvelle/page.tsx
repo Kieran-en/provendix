@@ -45,7 +45,7 @@ export default function NouvelleFormulePage() {
         code: data.code.toUpperCase(),
         compositions: data.compositions.map((c) => ({
           mp_id: parseInt(c.matiere_premiere_id),
-          quantite: parseFloat(c.quantite),
+          pourcentage: parseFloat(c.pourcentage),
         })),
       }),
     onSuccess: () => {
