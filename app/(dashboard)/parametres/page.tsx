@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { Settings, Save, Building2, Bell, Clock, DollarSign } from 'lucide-react'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { setCurrencyCode } from '@/lib/utils'
 
 interface Parametre {
   id: number
@@ -22,19 +23,22 @@ const PARAM_META: Record<string, { label: string; description: string; icon: Rea
   nom_provenderie:     { label: 'Nom de la provenderie', description: 'Apparaît sur les factures imprimées', icon: Building2, type: 'text' },
   seuil_alerte_stock:  { label: 'Seuil d\'alerte stock par défaut (kg)', description: 'Valeur utilisée si aucun seuil n\'est défini sur la MP', icon: Bell, type: 'number' },
   duree_peremption_pf: { label: 'Durée péremption PF (jours)', description: 'Durée de péremption par défaut des lots de produits finis', icon: Clock, type: 'number' },
-  devise:              { label: 'Devise', description: 'Symbole affiché sur les montants (ex: DA, DZD)', icon: DollarSign, type: 'text' },
+  devise:              { label: 'Devise', description: 'XAF (Afrique centrale) ou XOF (Afrique de l’Ouest), affiché FCFA', icon: DollarSign, type: 'select' },
+  coefficient_transformation: { label: 'Coefficient de transformation', description: 'Majoration appliquée au coût des matières pour calculer le coût de revient', icon: DollarSign, type: 'number' },
+  marge_vente_mp: { label: 'Marge sur les matières premières (%)', description: 'Marge ajoutée automatiquement au prix d’achat moyen (20 % par défaut)', icon: DollarSign, type: 'number' },
 }
 
 const DEFAULTS: Record<string, string> = {
   nom_provenderie:     'PROVENDIX',
   seuil_alerte_stock:  '500',
   duree_peremption_pf: '180',
-  devise:              'DA',
+  devise:              'XAF',
+  coefficient_transformation: '1.08',
 }
 
 export default function ParametresPage() {
   const queryClient = useQueryClient()
-  const [values, setValues] = useState<Record<string, string>>({ ...DEFAULTS })
+  const [overrides, setOverrides] = useState<Record<string, string>>({})
 
   const { data, isLoading } = useQuery<ParametresResponse>({
     queryKey: ['parametres'],
@@ -44,21 +48,23 @@ export default function ParametresPage() {
     },
   })
 
-  useEffect(() => {
+  const serverValues = useMemo(() => {
+    const loaded: Record<string, string> = { ...DEFAULTS }
     if (data?.data) {
-      const loaded: Record<string, string> = { ...DEFAULTS }
       for (const p of data.data) {
         loaded[p.cle] = p.valeur
       }
-      setValues(loaded)
     }
+    return loaded
   }, [data])
+  const values = { ...serverValues, ...overrides }
 
   const mutation = useMutation({
     mutationFn: async (params: Record<string, string>) => {
       await api.post('/parametres/bulk_update', { params })
     },
     onSuccess: () => {
+      setCurrencyCode(values.devise)
       toast.success('Paramètres enregistrés')
       queryClient.invalidateQueries({ queryKey: ['parametres'] })
     },
@@ -105,12 +111,25 @@ export default function ParametresPage() {
                     {meta.label}
                   </label>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{meta.description}</p>
-                  <input
-                    type={meta.type}
-                    value={values[cle] ?? ''}
-                    onChange={(e) => setValues((prev) => ({ ...prev, [cle]: e.target.value }))}
-                    className="w-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  />
+                  {meta.type === 'select' ? (
+                    <select
+                      value={values[cle] ?? 'XAF'}
+                      onChange={(e) => setOverrides((prev) => ({ ...prev, [cle]: e.target.value }))}
+                      className="w-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="XAF">XAF — Franc CFA d’Afrique centrale</option>
+                      <option value="XOF">XOF — Franc CFA d’Afrique de l’Ouest</option>
+                    </select>
+                  ) : (
+                    <input
+                      type={meta.type}
+                      min={meta.type === 'number' ? '0.01' : undefined}
+                      step={cle === 'coefficient_transformation' ? '0.01' : undefined}
+                      value={values[cle] ?? ''}
+                      onChange={(e) => setOverrides((prev) => ({ ...prev, [cle]: e.target.value }))}
+                      className="w-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  )}
                 </div>
               </div>
             </div>

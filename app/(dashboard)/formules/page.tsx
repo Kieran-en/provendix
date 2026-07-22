@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import api from '@/lib/api'
 import { Formule, PaginatedResponse } from '@/types'
-import { formatWeight, formatCurrency } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import { toast } from 'sonner'
@@ -153,9 +153,9 @@ export default function FormulesPage() {
                     {formule.compositions.map((comp) => (
                       <div key={comp.id} className="flex items-center justify-between text-sm">
                         <span className="text-slate-700">
-                          {(comp as any).mp_nom ?? comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`}
+                          {comp.mp_nom ?? comp.matiere_premiere?.nom ?? `MP #${comp.matiere_premiere_id}`}
                         </span>
-                        <span className="font-medium text-slate-800">{formatWeight(comp.quantite)}</span>
+                        <span className="font-medium text-slate-800">{Number(comp.pourcentage).toFixed(3)} %</span>
                       </div>
                     ))}
                   </div>

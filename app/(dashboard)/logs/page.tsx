@@ -107,7 +107,7 @@ export default function LogsPage() {
       <div className="flex items-center gap-2">
         <ScrollText className="w-5 h-5 text-emerald-600" />
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-          Journal d'audit
+          Journal d&apos;audit
         </h2>
         {data?.total != null && (
           <span className="ml-auto text-xs text-slate-500 dark:text-slate-400">
@@ -164,7 +164,7 @@ export default function LogsPage() {
       ) : logs.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-slate-400 gap-3">
           <ScrollText className="w-10 h-10 opacity-30" />
-          <span className="text-sm font-medium">Aucune entrée d'audit</span>
+          <span className="text-sm font-medium">Aucune entrée d&apos;audit</span>
           <span className="text-xs text-slate-400 dark:text-slate-500">
             Les créations, modifications et suppressions apparaîtront ici automatiquement.
           </span>

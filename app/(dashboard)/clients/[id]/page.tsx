@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,7 +27,6 @@ type FormData = z.infer<typeof schema>
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
   const queryClient = useQueryClient()
   const [editMode, setEditMode] = useState(false)
 
@@ -43,7 +42,7 @@ export default function ClientDetailPage() {
     queryKey: ['client-commandes', id],
     queryFn: async () => {
       const res = await api.get<PaginatedResponse<Commande>>('/commandes', {
-        params: { client_id: id, limit: 10 },
+        params: { client: id, limit: 10 },
       })
       return res.data
     },
@@ -88,8 +87,8 @@ export default function ClientDetailPage() {
   if (isLoading) return <LoadingSpinner />
 
   const paiementVariant = (statut: string) => {
-    if (statut === 'cash') return 'success'
-    if (statut === 'credit') return 'danger'
+    if (statut === 'paye') return 'success'
+    if (statut === 'non_paye') return 'danger'
     return 'warning'
   }
 
@@ -218,13 +217,13 @@ export default function ClientDetailPage() {
             <tbody className="divide-y divide-slate-100">
               {commandesData.data.map((cmd) => (
                 <tr key={cmd.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-slate-600">{formatDate((cmd as any).date_commande)}</td>
+                  <td className="px-4 py-3 text-slate-600">{formatDate(cmd.date_commande)}</td>
                   <td className="px-4 py-3 text-right font-medium text-slate-800">
-                    {formatCurrency((cmd as any).montant_total ?? cmd.montant)}
+                    {formatCurrency(cmd.montant_total ?? cmd.montant)}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <Badge
-                      label={cmd.statut_paiement === 'cash' ? 'Cash' : cmd.statut_paiement === 'credit' ? 'Crédit' : 'Partiel'}
+                      label={cmd.statut_paiement === 'paye' ? 'Payé' : cmd.statut_paiement === 'non_paye' ? 'Non payé' : 'Partiel'}
                       variant={paiementVariant(cmd.statut_paiement) as 'success' | 'danger' | 'warning'}
                     />
                   </td>

@@ -1,26 +1,57 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL
+const CONFIGURED_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 
-if (!BASE_URL) {
+if (!CONFIGURED_BASE_URL) {
   throw new Error('NEXT_PUBLIC_API_URL est manquant. Vérifiez votre fichier .env.local')
 }
+
+function resolveBaseUrl(configuredUrl: string): string {
+  if (typeof window === 'undefined') return configuredUrl
+
+  try {
+    const url = new URL(configuredUrl)
+    const localHosts = new Set(['localhost', '127.0.0.1'])
+    if (localHosts.has(url.hostname) && localHosts.has(window.location.hostname)) {
+      url.hostname = window.location.hostname
+      return url.toString().replace(/\/$/, '')
+    }
+  } catch {
+    return configuredUrl
+  }
+
+  return configuredUrl
+}
+
+const BASE_URL = resolveBaseUrl(CONFIGURED_BASE_URL)
 
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+  withXSRFToken: true,
+  xsrfCookieName: 'csrftoken',
+  xsrfHeaderName: 'X-CSRFToken',
 })
 
-// Attach access token to every request
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+let refreshPromise: Promise<void> | null = null
+
+function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(`${BASE_URL}/auth/refresh`, undefined, {
+        withCredentials: true,
+        withXSRFToken: true,
+        xsrfCookieName: 'csrftoken',
+        xsrfHeaderName: 'X-CSRFToken',
+      })
+      .then(() => undefined)
+      .finally(() => {
+        refreshPromise = null
+      })
   }
-  return config
-})
+  return refreshPromise
+}
 
 // Auto-refresh on 401
 api.interceptors.response.use(
@@ -28,26 +59,19 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
-    if (error.response?.status === 401 && !original._retry) {
+    const isAuthEndpoint = original?.url?.includes('/auth/login') || original?.url?.includes('/auth/refresh')
+
+    if (error.response?.status === 401 && original && !original._retry && !isAuthEndpoint) {
       original._retry = true
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token')
-        if (!refreshToken) throw new Error('No refresh token')
-
-        const { data } = await axios.post(`${BASE_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
-        })
-
-        localStorage.setItem('access_token', data.access_token)
-        original.headers.Authorization = `Bearer ${data.access_token}`
-
+        await refreshSession()
         return api(original)
       } catch {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('provendix-user')
-        window.location.href = '/login'
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('provendix-user')
+          window.location.assign('/login')
+        }
       }
     }
 

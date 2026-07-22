@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Truck, Search, Package } from 'lucide-react'
+import { Plus, Truck, Search, Package, Eye } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import api from '@/lib/api'
@@ -88,6 +88,7 @@ export default function LotsFournisseursPage() {
                   <th className="px-4 py-3 text-right font-semibold text-slate-600 bg-slate-50">Coût/kg</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 bg-slate-50">Date réception</th>
                   <th className="px-4 py-3 text-center font-semibold text-slate-600 bg-slate-50">État</th>
+                  <th className="px-4 py-3 bg-slate-50" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -99,7 +100,7 @@ export default function LotsFournisseursPage() {
                           <Package className="w-3.5 h-3.5 text-blue-600" />
                         </div>
                         <span className="font-medium text-slate-800">
-                          {(lot as any).mp_nom ?? lot.matiere_premiere?.nom ?? `MP #${lot.matiere_premiere_id}`}
+                          {lot.mp_nom ?? lot.matiere_premiere?.nom ?? `MP #${lot.matiere_premiere_id}`}
                         </span>
                       </div>
                     </td>
@@ -110,6 +111,7 @@ export default function LotsFournisseursPage() {
                     <td className="px-4 py-3.5 text-right text-slate-600">{formatCurrency(lot.cout_kg)}/kg</td>
                     <td className="px-4 py-3.5 text-slate-600">{formatDate(lot.date_reception)}</td>
                     <td className="px-4 py-3.5 text-center">{getStockBadge(lot)}</td>
+                    <td className="px-4 py-3.5 text-right"><Link href={`/lots-fournisseurs/${lot.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-emerald-600"><Eye className="h-3.5 w-3.5" /> Détail</Link></td>
                   </tr>
                 ))}
               </tbody>

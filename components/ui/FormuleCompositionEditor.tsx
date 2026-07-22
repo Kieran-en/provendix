@@ -1,6 +1,6 @@
 'use client'
 
-import { useFieldArray, Control, UseFormRegister, FieldErrors } from 'react-hook-form'
+import { useFieldArray, useWatch, Control, UseFormRegister, FieldErrors } from 'react-hook-form'
 import { Plus, Trash2 } from 'lucide-react'
 import { MatierePremiere } from '@/types'
 import { z } from 'zod'
@@ -16,14 +16,29 @@ export const formuleSchema = z.object({
     .array(
       z.object({
         matiere_premiere_id: z.string().min(1, 'MP requise'),
-        quantite: z
+        pourcentage: z
           .string()
-          .min(1, 'Quantité requise')
-          .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Invalide'),
-        aliment_fourni: z.string(),
+          .min(1, 'Pourcentage requis')
+          .refine((v) => {
+            const value = parseFloat(v)
+            return !isNaN(value) && value > 0 && value <= 100
+          }, 'Valeur attendue entre 0 et 100'),
       })
     )
     .min(1, 'Ajoutez au moins un ingrédient'),
+}).superRefine((data, ctx) => {
+  const total = data.compositions.reduce((sum, item) => sum + (parseFloat(item.pourcentage) || 0), 0)
+  if (Math.abs(total - 100) > 0.001) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['compositions'],
+      message: `La composition doit totaliser exactement 100 % (actuellement ${total.toFixed(3)} %)`,
+    })
+  }
+  const ids = data.compositions.map((item) => item.matiere_premiere_id).filter(Boolean)
+  if (new Set(ids).size !== ids.length) {
+    ctx.addIssue({ code: 'custom', path: ['compositions'], message: 'Une matière première ne peut apparaître qu’une fois' })
+  }
 })
 
 export type FormuleFormValues = z.infer<typeof formuleSchema>
@@ -37,6 +52,11 @@ interface Props {
 
 export default function FormuleCompositionEditor({ control, register, errors, matieresPremières }: Props) {
   const { fields, append, remove } = useFieldArray({ control, name: 'compositions' })
+  const compositions = useWatch({ control, name: 'compositions' })
+  const total = (compositions ?? []).reduce(
+    (sum, item) => sum + (parseFloat(item?.pourcentage ?? '') || 0),
+    0
+  )
 
   return (
     <div className="space-y-3">
@@ -44,14 +64,19 @@ export default function FormuleCompositionEditor({ control, register, errors, ma
         <label className="text-sm font-medium text-slate-700">
           Composition <span className="text-red-500">*</span>
         </label>
-        <button
+        <div className="flex items-center gap-3">
+          <span className={Math.abs(total - 100) < 0.001 ? 'text-xs font-medium text-emerald-600' : 'text-xs font-medium text-amber-600'}>
+            Total : {total.toFixed(3)} / 100 %
+          </span>
+          <button
           type="button"
-          onClick={() => append({ matiere_premiere_id: '', quantite: '', aliment_fourni: '' })}
+          onClick={() => append({ matiere_premiere_id: '', pourcentage: '' })}
           className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
         >
           <Plus className="w-3.5 h-3.5" />
           Ajouter un ingrédient
-        </button>
+          </button>
+        </div>
       </div>
 
       {fields.length === 0 && (
@@ -85,18 +110,19 @@ export default function FormuleCompositionEditor({ control, register, errors, ma
             <div>
               <div className="relative">
                 <input
-                  {...register(`compositions.${index}.quantite`)}
+                  {...register(`compositions.${index}.pourcentage`)}
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="kg"
+                  max="100"
+                  placeholder="%"
                   className="w-full px-2.5 py-2 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 pr-8"
                 />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">kg</span>
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
               </div>
-              {errors.compositions?.[index]?.quantite && (
+              {errors.compositions?.[index]?.pourcentage && (
                 <p className="text-red-500 text-xs mt-0.5">
-                  {errors.compositions[index]?.quantite?.message}
+                  {errors.compositions[index]?.pourcentage?.message}
                 </p>
               )}
             </div>
